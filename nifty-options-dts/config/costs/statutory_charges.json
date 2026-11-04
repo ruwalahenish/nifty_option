@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "description": "Statutory and exchange charges for NIFTY index options (NSE, equity derivatives). Independent of any broker. Each item is effective-date aware; source ids refer to config/sources.json.",
+  "items": {
+    "stt_option_sell_premium_rate": {
+      "unit": "fraction of premium turnover, charged on the SELL side only",
+      "versions": [
+        {
+          "value": 0.001,
+          "effective_from": "2024-10-01",
+          "effective_to": "2026-03-31",
+          "status": "VERIFIED_PRIMARY",
+          "sources": ["NSE_FATAX_63809", "NSE_FATAX_73524"],
+          "verified_on": "2026-11-04",
+          "notes": "0.10 per cent (raised from 0.0625 per cent on 2024-10-01; replaced on 2026-04-01)."
+        },
+        {
+          "value": 0.0015,
+          "effective_from": "2026-04-01",
+          "effective_to": null,
+          "status": "VERIFIED_PRIMARY",
+          "sources": ["NSE_FATAX_73524", "FINANCE_ACT_2026_GAZETTE", "FINANCE_BILL_2026_MEMO"],
+          "verified_on": "2026-11-04",
+          "notes": "0.15 per cent on sale of an option, on the premium. Finance Act 2026 (assent 2026-03-30). Exercise (intrinsic value) also 0.15 per cent but intraday spreads are closed, not exercised."
+        }
+      ]
+    },
+    "exchange_txn_charge_inr_per_crore_option_premium": {
+      "unit": "INR per crore (10,000,000) of premium turnover, each side, NSE equity options",
+      "versions": [
+        {
+          "value": 3503,
+          "effective_from": "2024-10-01",
+          "effective_to": "2026-02-28",
+          "status": "VERIFIED_PRIMARY",
+          "sources": ["NSE_FA_64232", "NSE_FA_73061"],
+          "verified_on": "2026-11-04",
+          "notes": "Rs 35.03 per lakh of premium value (NSE/FA/64232). Total outflow with the IPFT contribution was Rs 3,553 per crore (NSE/FA/73061, 'existing')."
+        },
+        {
+          "value": 3552.99,
+          "effective_from": "2026-03-01",
+          "effective_to": null,
+          "status": "VERIFIED_PRIMARY",
+          "sources": ["NSE_FA_73061"],
+          "verified_on": "2026-11-04",
+          "notes": "NSE/FA/73061: transaction charge Rs 3,552.99 plus IPFT Rs 0.01 per crore, total unchanged at Rs 3,553, from 2026-03-01."
+        }
+      ]
+    },
+    "ipft_inr_per_crore_option_premium": {
+      "unit": "INR per crore of premium turnover, each side, NSE Investor Protection Fund Trust contribution",
+      "versions": [
+        {
+          "value": 50,
+          "effective_from": null,
+          "effective_to": "2026-02-28",
+          "status": "VERIFIED_PRIMARY",
+          "sources": ["NSE_FA_73061"],
+          "verified_on": "2026-11-04",
+          "notes": "Stated as the 'existing' IPFT contribution on 2026-02-27. When it began is not verified (the circular says it was raised in 2023), so earlier dates are extrapolated and allowed in fixture mode only."
+        },
+        {
+          "value": 0.01,
+          "effective_from": "2026-03-01",
+          "effective_to": null,
+          "status": "VERIFIED_PRIMARY",
+          "sources": ["NSE_FA_73061"],
+          "verified_on": "2026-11-04",
+          "notes": "Rolled back to Rs 0.01 per crore from 2026-03-01."
+        }
+      ]
+    },
+    "sebi_turnover_fee_inr_per_crore": {
+      "unit": "INR per crore of turnover, each side, securities other than debt",
+      "versions": [
+        {
+          "value": 10,
+          "effective_from": null,
+          "effective_to": null,
+          "status": "VERIFIED_PRIMARY",
+          "sources": ["NSE_PAGE_LEVIES", "ZERODHA_CHARGES_PAGE"],
+          "verified_on": "2026-11-04",
+          "notes": "NSE page: 0.0001 per cent (Rs 10 per crore). Zerodha's page says the fee will fall to Rs 15 per crore only once SEBI announces a date; no such date was verified, so Rs 10 stands. Start date of the current rate not verified."
+        }
+      ]
+    },
+    "stamp_duty_option_buyer_rate": {
+      "unit": "fraction of premium turnover, charged on the BUY side only",
+      "versions": [
+        {
+          "value": 0.00003,
+          "effective_from": "2020-07-01",
+          "effective_to": null,
+          "status": "VERIFIED_PRIMARY",
+          "sources": ["NSE_PAGE_LEVIES"],
+          "verified_on": "2026-11-04",
+          "notes": "0.003 per cent on equity options, payable by the buyer. Collection through clearing corporations from 2020-07-01 under the Finance Act 2019 amendment to the Indian Stamp Act. State stamp-duty variations are not modelled."
+        }
+      ]
+    },
+    "gst_rate": {
+      "unit": "fraction, on stock-broker services (brokerage and the charges in gst_base_components)",
+      "versions": [
+        {
+          "value": 0.18,
+          "effective_from": null,
+          "effective_to": null,
+          "status": "VERIFIED_PRIMARY",
+          "sources": ["NSE_PAGE_LEVIES"],
+          "verified_on": "2026-11-04",
+          "notes": "NSE page: stock broker services 18.00 per cent. Start date not verified."
+        }
+      ]
+    },
+    "gst_base_components": {
+      "unit": "which charges attract GST",
+      "versions": [
+        {
+          "value": ["brokerage", "sebi_fee", "exchange_txn", "ipft"],
+          "effective_from": null,
+          "effective_to": null,
+          "status": "VERIFIED_BROKER_TARIFF",
+          "sources": ["ZERODHA_CHARGES_PAGE"],
+          "verified_on": "2026-11-04",
+          "notes": "Zerodha: GST is 18 per cent on (brokerage + SEBI charges + transaction charges), and IPFT is quoted 'plus GST'. IPFT is included in the base here. STT and stamp duty carry no GST."
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,64 @@
+National Stock Exchange of India Limited
+
+Circular                                         Date: October 19, 2026
+
+  Department: FUTURES & OPTIONS
+ Download Ref No: NSE/FAOP/76940
+ Circular Ref. No: 142/2026
+
+All Members,
+
+Muhurat Trading session on account of Diwali
+
+In continuation to circular No. NSE/FAOP/71777 dated December 12, 2025, a special live trading session shall
+be held on Sunday, November 08, 2026 on account of Muhurat trading on Diwali as per the following schedule:
+
+               Diwali Muhurat Trading Session on Sunday , November 08, 2026
+
+Main Sessions                 Start Time      End Time   Remarks
+                                (in Hrs)       (in Hrs)
+
+                              14:05           14:10      � Order entry, Modification and
+                                                         Cancellation for both limit and market
+                                                         orders.
+
+PreOpen - Order Entry                                    � Order entry, order modification, order
+Period                                                   cancellation period only for limit
+                                                         orders.
+                              14:10           14:15      � No modification/ cancellation
+
+                                                         allowed for market orders
+                                                         � (*) system driven random closure in
+                                                         the last 2 minutes
+
+Preopen - Order Matching &    14:15           14:17
+trade Confirmation Period                                   -
+
+Preopen - Buffer Period       14:17           14:20 -
+
+Normal Market (Continuous     14:20           15:40
+Trading Session - CTS)                                      -
+
+Update of Stock & Index
+
+future price bands for        15:15           -
+alignment with CAS in Equity
+
+Cash Market
+
+Trade modification time       14:20           15:50 -
+
+All trades executed in this Diwali Muhurat trading session shall result in settlement obligations.
+National Stock Exchange of India Limited
+
+         For and on behalf of
+         National Stock Exchange of India Limited
+
+Aarti Surve
+Chief Manager
+
+Toll Free No              Email id
+1800-266-0050 (Option 1)  msm@nse.co.in
+
+                                                   Page 2 of 2
+

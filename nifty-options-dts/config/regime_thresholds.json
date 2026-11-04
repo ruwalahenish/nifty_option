@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "kind": "STRATEGY_ASSUMPTIONS",
+  "description": "Thresholds for the Version 1 regime engine. These are OUR modelling choices, not exchange facts and not market data. They were chosen by reasoning, not optimised on any data, and are NOT validated on real markets. Percentages are percent (0.30 means 0.30%).",
+  "values": {
+    "interval_minutes": 5,
+    "min_bars": 12,
+    "max_data_lag_minutes": 10,
+    "net_move_pct": 0.30,
+    "range_position_high": 0.65,
+    "range_position_low": 0.35,
+    "recent_window": 6,
+    "recent_dominance": 4,
+    "structure_window": 12,
+    "votes_required": 3,
+    "sideways_max_range_pct": 0.45,
+    "abnormal_bar_range_pct": 0.50,
+    "high_vol_stdev_pct": 0.10
+  }
+}

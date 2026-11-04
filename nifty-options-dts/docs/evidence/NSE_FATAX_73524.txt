@@ -1,0 +1,91 @@
+Department: FINANCE & ACCOUNTS                                                Date: March 31, 2026
+Download Ref No: NSE/FATAX/73524
+
+Circular Ref. No: 02/2026
+
+To,
+All the Members of the Exchange
+
+Sub: Changes in relation to rates of Securities Transaction Tax
+
+This has reference to Exchange earlier circulars w.r.t Securities Transaction Tax (STT) viz; (a) Circular Ref. No. 2/2016, download
+Ref. No. NSE/FATAX/32385 dated May 16, 2016, (b) Circular Ref. No. 2/2018, download Ref. No. NSE/FATAX/38737 dated August
+30, 2018, (c) Circular Ref. No. 1/2019, download Ref. No. NSE/FATAX/41263 dated June 7, 2019, (d) Circular Ref. No. 2/2019,
+download Ref. No. NSE/FATAX/41919 dated August 20, 2019 (e) Circular Ref. No. 1/2020, download Ref. No. NSE/FATAX/43604
+dated February 19, 2020 (f) Circular Ref. No. 2/2023, download Ref. No. NSE/FATAX/56235 dated April 1, 2023 and (g) Circular
+Ref. No: 2 /2024, download Ref No: NSE/FATAX/63809 dated September 9, 2024. In continuation to the above, we would like to
+inform that The Finance Act, 2026, which received the Presidential assent on March 30, 2026, has revised the following rates of
+levy of STT with effect from 1st day of April, 2026 as under:-
+
+     (a) Sale of an option in securities has been revised to 0.15% (upto March 31, 2026 � 0.10%);
+     (b) Sale of an option in securities, where option is exercised, has been revised to 0.15% (upto March 31, 2026 � 0.125%);
+
+          and
+     (c) Sale of a futures in securities has been revised to 0.05% (upto March 31, 2026 � 0.02%).
+
+Accordingly, STT on the following transactions executed on the Exchange on or after April 1, 2026, shall be charged at the rates
+indicated in Column C below:-
+
+Sr.  Taxable securities transaction                         Rate w.e.f April    Rate upto     Payable by
+                                                                 1, 2026      March 31, 2026         E
+No.
+                                                                                       D        Purchaser
+A                          B                                      C             0.1 per cent   (No Change)
+                                                            0.1 per cent
+1. Purchase of an equity share in a company or a unit       (No Change)         0.1 per cent      Seller
+       of a business trust, where �                                                            (No Change)
+          (a) the transaction of such purchase is           0.1 per cent
+              enteredinto in a recognized stock             (No Change)
+              exchange; and
+          (b) the contract for the purchase of such
+              share or unit is settled by the actual
+              delivery or transfer of such share or unit.
+
+2. Sale of an equity share in a company or a unit of a
+       business trust, where �
+          (a) the transaction of such sale is entered into
+          inrecognized stock exchange; and
+
+     (b) the contract for the sale of such share or
+     unitis settled by the actual delivery or transfer
+     of such share or unit.
+Sr.  Taxable securities transaction                         Rate w.e.f April    Rate upto      Payable by
+                                                                 1, 2026      March 31, 2026       Seller
+No.                                                                            0.001 per cent
+                                                              0.001 per cent                   (No Change)
+2A Sale of a unit of an equity oriented fund, where-           (No Change)     0.025 per cent
+          (a) the transaction of such sale is entered into                                         Seller
+          inrecognized stock exchange; and                                     0.10 per cent   (No Change)
+                                                                              0.125 per cent
+     (b) the contract for the sale of such unit is                            0.02 per cent        Seller
+     settled by the actual delivery or transfer of                                             (No Change)
+     such unit.                                                                                 Purchaser
+                                                                                               (No Change)
+3. Sale of an equity share in a company or a unit of        0.025 per cent
+       an equity oriented fund or a unit of a business       (No Change)                           Seller
+       trust, where �                                                                          (No Change)
+          (a) the transaction of such sale is entered into
+          ina recognized stock exchange; and
+
+     (b) the contract for the sale of such share or unit
+     is settled otherwise than by the actual delivery
+     or transfer of such share or unit.
+
+4.   (a) Sale of an option in securities                    0.15 per cent
+
+     (b) Sale of an option in securities where              0.15 per cent
+     option is exercised
+
+     (c) Sale of a futures in securities                    0.05 per cent
+
+This is for information and compliance of the Trading Members and also for onward transmission to theconstituents.
+
+In case of any clarifications, you may write / contact Mr. Kunal Mehta or Mrs. Bhoomi Chitalia on
+taxation@nse.co.in or at 022-26598140 / 022-26598100 Ext. 23059 / Extn. 22586.
+
+For and on behalf of
+National Stock Exchange of India Limited
+
+Premal Shah
+Vice President
+

@@ -1,0 +1,41 @@
+Department: FINANCE & ACCOUNTS            Date: September 27, 2024
+Download Ref No: NSE/FA/64232
+
+Circular Ref. No: 5/2024
+
+To all the Trading Members
+
+Sub: Revision in Transaction Charges
+Trading Members are aware that the SEBI had issued Circular No. SEBI/HO/MRD/TPD-1/P/CIR/2024/92
+dated July 1, 2024, in relation to Charges levied by Market Infrastructure Institutions (MIIs). The said
+circular directed MIIs that the charge structure of the MII should be uniform and equal for all its
+members instead of current slab-wise structure which is dependent on volume of the trading members.
+Further, it also directs that the MII charges which are to be recovered by the trading members from the
+end client should be True to Label where in the amount recovered from end clients is the same as
+amount paid by the trading members to the MIIs.
+In this direction, it may be noted that the Exchange has now decided to levy the following transaction
+charges to the Trading members:
+
+Cash Market: Rs. 2.97 each side per lakh of traded value
+
+Equity Futures: Rs. 1.73 each side per lakh of traded value
+
+Equity Options: Rs. 35.03 each side per lakh of premium value
+
+Currency Futures: Rs. 0.35 each side per lakh of traded value
+
+Currency Options and Interest Rate Options: Rs. 31.10 each side per lakh of premium value
+
+The above revision in transaction charges will be applicable with effect from October 1, 2024.
+
+Further, trading members are instructed to ensure the compliance to the above-mentioned SEBI circular.
+
+For and on behalf of
+National Stock Exchange of India Limited
+
+Ian De Souza                    Fax No    Email id
+Chief Financial Officer         26598394  dl-fa-mem@nse.co.in
+
+  Telephone No
+  26598142
+

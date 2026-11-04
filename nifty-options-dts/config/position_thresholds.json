@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "kind": "STRATEGY_ASSUMPTIONS",
+  "description": "Version 1 position-management assumptions (HOLD or CLOSE only). These are our choices, chosen by reasoning, NOT validated on real market data and NOT tuned on the synthetic fixtures. They are separate from exchange facts, cost rules, risk limits (config/config.example.json) and the strategy and regime thresholds. The forced flat-by time is in config/config.example.json.",
+  "values": {
+    "profit_target_pct_of_defined_risk": 60,
+    "stop_loss_pct_of_defined_risk": 50,
+    "invalidate_on_opposite_regime": true,
+    "invalidate_on_high_volatility": true,
+    "data_safety_failed_checks": 3
+  }
+}

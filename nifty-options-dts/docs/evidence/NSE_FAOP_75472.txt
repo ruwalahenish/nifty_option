@@ -1,0 +1,225 @@
+National Stock Exchange of India Limited
+
+Circular
+
+Department: FUTURES & OPTIONS                    Date: July 30, 2026
+Download Ref No: NSE/FAOP/75472
+Circular Ref. No: 109/2026
+
+All Members,
+
+Mock trading on Saturday, August 01, 2026 � Go Live of Trading modalities related to Introduction of
+Closing Auction Session (CAS) in Equity Cash segment � New version of NEAT+ 7.8.9
+
+Members are required to note that the changes in trading modalities in the Equity Derivatives segment
+due to introduction of CAS in equity segment, shall be effective in LIVE from August 03, 2026. Following
+circulars were issued by Exchange:
+
+Particulars   Reference number & date            Subject
+ Circulars
+                                                 Operational guidelines and Standard
+FAQ path
+              NSE/CMTR/73362 dated March 18,     Operating Procedure (SOP) on Introduction
+
+              2026                               of Closing Auction Session (CAS) in the
+
+                                                 Equity Cash Segment
+
+                                                 Introduction of Closing Auction Session
+
+              NSE/FAOP/74467 dated May 29, 2026  (CAS) in the Equity Cash segment - Change
+                                                 in trading modalities in the Equity
+
+                                                 Derivatives segment
+
+              https://www.nseindia.com/static/trade/continuous-markets-FAQs > Closing Auction
+
+              Session (CAS) in Equity segment(CM) and changes in Equity Derivatives (F&O) Segment
+
+In continuation to circular (Download No. 71999) dated December 24, 2025, Exchange shall be conducting
+a mock trading session in the Futures & Options segment on Saturday, August 01, 2026.
+
+                                                   Mock Date: August 01, 2026  Time in Hrs
+                                                                                      -
+Particulars
+Trading Session-1 from Primary Site                                               07:45
+Pre-Open Open time
+Pre-Open Close time*                                                              07:53
+*Random closure in last one minute
+Normal Market open time                                                           08:00
+Contingency start time                                                            08:45
+Contingency end time                                                              09:55
+National Stock Exchange of India Limited                                                       10:00
+
+           Normal Market close time                                                         Time in Hrs
+                                                                                                   -
+                                                              Mock Date: August 01, 2026
+           Particulars                                                                         10:30
+           Trading Session-2 from DR Site#                                                     10:38
+           Pre-Open Open time                                                                  10:45
+           Pre-Open Close time*                                                                11:30
+           *Random closure in last one minute                                                  11:55
+           Normal Market open time                                                              12:05
+           Update of Stock future price bands for alignment with CAS in Equity Cash Market
+           Normal Market close time
+           Trade Modification end time
+
+                                                   Mock Date: August 01, 2026               Time in Hrs
+                                                                                                   -
+Particulars
+Trading Session-3 from Primary Site#                                                           14:00
+Pre-Open Open time
+Pre-Open Close time*                                                                           14:08
+*Random closure in last one minute
+Normal Market open time                                                                        14:15
+Update of Stock future price bands for alignment with CAS in Equity Cash Market                15:15
+Normal Market close time                                                                       15:40
+Trade Modification end time                                                                    15:50
+Re-login Timings
+Live Re-login start time                                                                       20:00
+Live Re-login close time                                                                       21:00
+
+#Trades from trading session 1 & 2 shall not be available in trading session 3. However, Trades from trading
+session 1 shall be available in trading session 2. Members are requested to actively participate in all trading
+sessions.
+
+Members are required to take note of the below important points:
+     A) NEATPlus version details :
+
+Version  Download path on NSE Extranet path                       Discontinuation date
+7.8.8    /faoftp/faocommon/NEATPlus788                            September 05, 2026 (mock)
+7.8.9    /faoftp/faocommon/NEATPlus789                            -
+
+B) In order to align the price band for stock future contacts applicable during the CAS in CM segment,
+     the reference price shall be determined based on the VWAP of the trades executed in the respective
+
+                                                                                                                                               Page 2 of 5
+National Stock Exchange of India Limited
+
+                    stock futures between 11:15 a.m and 11:30 a.m (Session 2) and 03:00 p.m to 03:15 p.m (Session
+                    3).
+
+               C) NEATPlus version (7.8.8 & 7.8.9) are compatible with new broadcast parameters. For information
+                    regarding market data parameters, kindly refer the circular NSE/MSD/75324 dated July 21, 2026.
+
+               D) Members using direct connection via NNF may note that existing broadcast parameters shall be
+                    discontinued from September 05, 2026 (circular reference NSE/MSD/75324). Accordingly, they shall
+                    plan to migrate to new market data broadcast parameters on priority if still using existing broadcast
+                    parameters.
+
+         For other important instructions regarding the mock trading, kindly refer to the following Annexure:
+
+         Annexure 1: Important instructions regarding mock trading session.
+         Annexure 2: Pre-requisites / General guidelines for participating in the Mock environment.
+         Annexure 3: Important guidelines in case of switchover of trading system to Disaster Recovery (DR) Site.
+
+         For and on behalf of
+         National Stock Exchange of India Limited
+
+Khushal Shah
+Associate Vice President
+
+Toll Free No              Email id
+1800-266-0050 (Option 1)  msm@nse.co.in
+
+                                                   Annexure � 1
+                          Important instructions regarding mock trading session
+
+Particulars               Details
+Connectivity Parameters:
+Installation Guide:       Refer to circular NSE/MSD/74511 dated June 02, 2026 for interactive
+NEAT Version:             connectivity details.
+Order Purge:
+                          Available on NSE Extranet
+Software Testing:         at /faoftp/faocommon/Installation_Procedure.
+                          NEATPlus 7.8.8 & 7.8.9
+                          All outstanding orders will be cleared before each session. Members
+                          using NNF software must manually clear orders in their systems.
+
+                          Refer to circular NSE/MSD/46441 and SEBI
+                          circular SEBI/HO/MRD1/DSAP/CIR/P/2020/234. Members may use
+                          either Mock Trading or Simulated Environment to meet regulatory
+                          requirements.
+
+                                                                                               Page 3 of 5
+National Stock Exchange of India Limited
+
+No Financial Obligation:  Trades during mock sessions will not result in any fund pay-in or pay-
+                          out.
+
+UCC/PAN Validity:         With reference to Exchange circular NSE/ISC/51754 dated March 24,
+                          2022 and NSE/ISC/52722 dated June 23, 2022 issued by Investor
+                          Services Cell and updated from time to time :
+
+                               � Only valid and compliant UCC/PAN uploaded and approved
+                                    before cutoff will be allowed.
+
+                               � For queries, contact uci@nse.co.in.
+                                     UCC Validation will be skipped during contingency time for
+                                    order entry.
+
+Participation:            Members should participate using all trading software and re-login
+                          into live environment to ensure smooth connectivity for Monday,
+Live Updates:             August 03, 2026.
+Support:
+                          Visit www.nseindia.com for any session-related updates.
+
+                          For queries, call Toll-Free: 1800 266 0050 (Option 1).
+
+                            Annexure � 2
+
+Pre-requisites / General guidelines for participating in the Mock environment
+
+Pre-requisites / General    Details
+guidelines Heads
+                            All members enabled for trading in the Futures & Options (FO)
+Eligibility                 segment in the live market are automatically eligible for mock
+                            trading.
+Telnet Connectivity         Participation is enabled using existing User IDs, IPs, and Box ID
+                            mappings from the live environment.
+                            Ensure you can successfully telnet the Exchange host from the IP
+                            address you intend to use.
+
+Box ID Setup                Confirm that the Box ID is created on the IP with appropriate
+                            messages for the segment you wish to trade in.
+
+NNF Application Users       If using Non-NEAT Frontend (NNF):
+                            a) User ID must be of dealer type.
+                            b) It must be converted for NNF.
+                            C) It must be mapped with the IP.
+
+Branch/User Limits          Set appropriate branch and user limits from the Corporate Manager
+                            Terminal before placing orders in the mock session.
+
+Exchange Requests for Mock  Send email requests for the following actions with User ID and
+Participation               segment details:
+
+                                                                                                  Page 4 of 5
+National Stock Exchange of India Limited
+
+Password Management  a) Pro Enablement
+                     b) CTCL Conversion (only dealer IDs)
+                     c) Password Reset for Corporate Manager User ID
+
+                     d) Unlocking of Corporate Manager User ID
+                     e) Change of Trading Rights (e.g., PRO to CLI, PRO+CLI)
+                     Corporate Manager User ID: Exchange will assist with reset/unlock
+                     via email.
+                     Other User IDs: Members must reset/unlock these themselves using
+                     the Corporate Manager Terminal.
+
+                                                            Annexure � 3
+
+     Important guidelines in case of switchover of trading system to Disaster Recovery (DR) Site
+
+1. Kindly note below points after switch over to DR site:
+          a. Trades of primary site will be available in Previous Trades window.
+          b. Trades can be modified/cancelled using Multiple Trade Modification and Cancellation window
+                respectively.
+          c. Messages of primary site will be available in TWS Message Area.
+
+2. If user renames or deletes the User folder and re-login the NEAT terminal, then data of primary site
+     shall not be available in the functional window as mentioned above point.
+
+                                          Page 5 of 5
+

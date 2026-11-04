@@ -1,0 +1,80 @@
+[Excerpt: lines of the page text containing relevant keywords; full page hash in config/sources.json]
+ Option Chain 
+ Market Turnover 
+ Holidays 
+ Holidays 
+ Option Chain 
+ Option Chain 
+ View Option chain for the exchange 
+ Exit Option for shareholders 
+ Holidays 
+ Holidays 
+ Option Chain 
+ Option Chain 
+ View Option chain for the exchange 
+ Exit Option for shareholders 
+ Holidays 
+ Market Turnover 
+ *In case of Option Contracts “Value” displayed is “Premium Turnover” 
+ Turnover of Currency Futures and Currency options include turnover of both Non Cross Currency pairs and
+ Currency Turnover is calculated by using latest available Reference rate-FBIL 
+ Turnover of Mutual Fund is based on the orders received on the platform as per the details given below: 
+ Market Timings & Holidays 
+ Market Timings & Holidays 
+ Market Timings & Holidays 
+ Market Timings & Holidays 
+ Market Timings & Holidays 
+ Market Timings & Holidays 
+ Market Timing & Holidays 
+ Nifty 50 Options 
+ NSE defines the characteristics of the futures contract such as the underlying index, market lot, and the maturity date of the contract. The futures contracts are available for trading from introduction to the expiry date. 
+ Expiry Date: Date of contract expiry 
+ Expiry date identifies the date of expiry of the contract 
+ Nifty 50 futures contracts have a maximum of 3-month trading cycle - the near month (one), the next month (two) and the far month (three). A new contract is introduced on the trading day following the expiry of the near month contract. The new contract will be introduced for a three month duration. This way, at any point in time, there will be 3 contracts available for trading in the market i.e., one near month, one mid month and one far month duration respectively 
+ Expiry day 
+ Nifty 50 futures contracts expire on the last Tuesday of the expiry month. If the last Tuesday is a trading holiday, the contracts expire on the previous trading day. 
+ The value of the futures contracts on Nifty 50 may not be less than Rs. 15 lakhs at the time of introduction. The permitted lot size for futures contracts & options contracts shall be the same for a given underlying or such lot size as may be stipulated by the Exchange from time to time. 
+ Kindly refer file "NSE_FO_contract_ddmmyyyy.csv.gz" for the latest applicable lot size and quantity freeze file details. 
+ Price steps 
+ The price steps for Nifty 50 futures have been defined based on the Index levels. 
+ Kindly refer file "NSE_FO_contract_ddmmyyyy.csv.gz" for the latest applicable lot size and quantity freeze file details. 
+ An option gives a person the right but not the obligation to buy or sell something. An option is a contract between two parties wherein the buyer receives a privilege for which he pays a fee (premium) and the seller accepts an obligation for which he receives a fee. The premium is the price negotiated and set when the option is bought or sold. A person who buys an option is said to be long in the option. A person who sells (or writes) an option is said to be short in the option. 
+ NSE introduced trading in index options on June 4, 2001. The options contracts are European style and physical settled and are based on the popular market benchmark  Nifty 50  index. ( Selection criteria for indices ) 
+ Expiry Date: Date of contract expiry 
+ Option Type: CE/ PE 
+ Strike Price: Strike price for the contract 
+ Instrument type represents the instrument i.e. Options on Index. 
+ Expiry date identifies the date of expiry of the contract 
+ Option type identifies whether it is a call or a put option., CE - Call European, PE - Put European. 
+ Nifty 50 index options contracts have 4 weekly expiry contracts, 3 consecutive monthly contracts, additionally 3 quarterly months of the cycle March / June / September / December and 8 following semi-annual months of the cycle June / December would be available, so that at any point in time there would be options contracts with atleast 5 year tenure available. New serial weekly options contract shall be introduced after expiry of the respective week’s contract. On expiry of the near month contract, new contracts (monthly/quarterly/ half yearly contracts as applicable) are introduced at new strike prices for both call and put options, on the trading day following the expiry of the near month contract. 
+ Expiry Day 
+ Nifty 50 index options monthly contracts expire on the last Tuesday of the expiry month and weekly contracts expire on every Tuesday of the expiry week. If the Tuesday of the expiry period is a trading holiday, the contracts expire on the previous trading day. 
+ Strike Price Intervals 
+ The number of contracts provided in options on index is based on the range in previous day's closing value of the underlying index and applicable as per the following table for all weekly and monthly contracts: 
+ Strike Interval 
+ Number of Strike 
+ The Strike scheme for Nifty 50 index long term quarterly and half yearly expiry option contracts is: 
+ Strike Interval 
+ Discontinuation of illiquid strikes:  
+ Exchanges in consultation with SEBI has decided to implement a semi-annual review to discontinue those strikes of  Nifty50 Long Term Index  Option contracts which have zero open interest and not part of the revised strike scheme as per the below criteria: 
+ All long term index option contracts eligible as per revised strike scheme will continue to be available, irrespective of  the open interest. 
+ All long term index option contracts not eligible as per revised strike scheme and having open interest will continue  to be available 
+ All long term index option contracts not eligible as per revised strike scheme and with zero open interest will    be discontinued 
+ The strike interval review and discontinuation of illiquid strikes in Nifty 50 Long Term Index Options  shall  be   conducted on semi-annual basis starting from June 2020 expiry. Accordingly, revision if any, will be  implemented after the expiry of respective computation month i.e. expiries of month of June / December.  
+ The strike interval change, if any, shall be communicated through a circular 
+ The value of the option contracts on Nifty 50 index may not be less than Rs. 15 lakhs at the time of introduction. The permitted lot size for futures contracts & options contracts shall be the same for a given underlying or such lot size as may be stipulated by the Exchange from time to time. 
+ Kindly refer file "NSE_FO_contract_ddmmyyyy.csv.gz" for the latest applicable lot size and quantity freeze file details. 
+ Price steps 
+ The price step in respect of Nifty 50 index options contracts is Re.0.05. 
+ Base price of the options contracts, on introduction of new contracts, would be the theoretical value of the options contract arrived at based on Black-Scholes model of calculation of options premiums. 
+ The options price for a Call, computed as per the following Black Scholes formula: 
+ C = price of a call option 
+P = price of a put option 
+X = Strike price of the option 
+t = time to expiration 
+ The base price of the contracts on subsequent trading days, will be the daily close price of the options contracts. The closing price shall be calculated as follows: 
+ If the contract is not traded for the day, the base price of the contract for the next trading day shall be the theoretical price of the options contract arrived at based on Black-Scholes model of calculation of options premiums. 
+ Kindly refer file "NSE_FO_contract_ddmmyyyy.csv.gz" for the latest applicable lot size and quantity freeze file details. 
+ About Us Structure & Key Personnel Awards and Recognitions Regulations Event Gallery Media Holidays Careers Contact Us Web Information Manager 
+ - Trade Support Toll Free no : 1800 266 0050 (Select IVR option 1) Charged no : 022 68645400 / 022 50998100 (Select IVR option 1) Timings : 8:00 AM to 2:00 AM on subsequent day (Monday to Friday)
+ - Member Compliance Support Toll Free no : 1800 266 0050 (Select IVR option 3) Charged no : 022 68645400 / 022 50998100 (Select IVR option 3) Timings : 9:30 AM to 5:45 PM (Monday to Friday) 

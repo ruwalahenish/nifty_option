@@ -1,0 +1,118 @@
+{
+  "schema_version": 2,
+  "underlying": "NIFTY",
+  "description": "Versioned exchange-dependent values for NIFTY 50 index options. Nothing in strategy, risk or execution may hard-code these; read them through nifty_core.contracts. Source ids refer to config/sources.json.",
+  "items": {
+    "lot_size": {
+      "unit": "index units per lot, looked up by the contract's expiry date (weekly and monthly contracts)",
+      "versions": [
+        {
+          "value": 75,
+          "effective_from": "2025-10-03",
+          "effective_to": "2025-12-30",
+          "status": "VERIFIED_PRIMARY",
+          "sources": ["NSE_FAOP_70616"],
+          "verified_on": "2026-11-04",
+          "notes": "The circular's 'present market lot' on 2025-10-03; applies to weekly and monthly contracts up to the 30-Dec-2025 expiry. Earlier history not verified."
+        },
+        {
+          "value": 65,
+          "effective_from": "2026-01-06",
+          "effective_to": null,
+          "status": "VERIFIED_PRIMARY",
+          "sources": ["NSE_FAOP_70616"],
+          "verified_on": "2026-11-04",
+          "notes": "First weekly expiry on the revised lot is 06-Jan-2026, first monthly 27-Jan-2026. A search found no later NIFTY lot revision, but that is not proof: confirm against the current NSE_FO_contract_ddmmyyyy.csv.gz before relying on it."
+        }
+      ]
+    },
+    "weekly_expiry_weekday": {
+      "unit": "weekday number, Monday=0; looked up by the nominal expiry date. Also used for the monthly rule (last such weekday of the month).",
+      "versions": [
+        {
+          "value": 3,
+          "effective_from": null,
+          "effective_to": "2025-08-28",
+          "status": "VERIFIED_PRIMARY",
+          "sources": ["NSE_FAOP_68685"],
+          "verified_on": "2026-11-04",
+          "notes": "THURSDAY (weekly: Thursday of the week; monthly: last Thursday). Start date of this rule not verified. Rule revised with effect from 2025-08-28 (EOD)."
+        },
+        {
+          "value": 1,
+          "effective_from": "2025-09-09",
+          "effective_to": null,
+          "status": "VERIFIED_PRIMARY",
+          "sources": ["NSE_FAOP_68685", "NSE_PAGE_NIFTY50_FO"],
+          "verified_on": "2026-11-04",
+          "notes": "TUESDAY (weekly: Tuesday of the week; monthly: last Tuesday). The circular annexure moves the 04-Sep-2025 weekly expiry to 09-Sep-2025, so the week of 2025-09-01 has no weekly expiry and 2025-09-09 is the first weekly expiry on the new rule."
+        }
+      ]
+    },
+    "expiry_holiday_rule": {
+      "unit": "what happens when the expiry day is a trading holiday",
+      "versions": [
+        {
+          "value": "PREVIOUS_TRADING_DAY",
+          "effective_from": null,
+          "effective_to": null,
+          "status": "VERIFIED_PRIMARY",
+          "sources": ["NSE_PAGE_NIFTY50_FO", "NSE_PAGE_CONTRACT_SPECS"],
+          "verified_on": "2026-11-04",
+          "notes": "NSE: 'If the Tuesday of the expiry period is a trading holiday, the contracts expire on the previous trading day.' Start date not verified."
+        }
+      ]
+    },
+    "tick_size": {
+      "unit": "INR price step for NIFTY index options",
+      "versions": [
+        {
+          "value": 0.05,
+          "effective_from": null,
+          "effective_to": null,
+          "status": "VERIFIED_PRIMARY",
+          "sources": ["NSE_PAGE_CONTRACT_SPECS"],
+          "verified_on": "2026-11-04",
+          "notes": "From the NSE contract specifications table (columns FUTIDX, OPTIDX, ...). The page text is flattened, so the OPTIDX column was read by position: the index-level tick table belongs to index futures and 0.05 follows for index options. Re-check on the live page if it matters."
+        }
+      ]
+    },
+    "strike_interval": {
+      "unit": "index points between strikes, weekly and monthly NIFTY contracts",
+      "versions": [
+        {
+          "value": 50,
+          "effective_from": null,
+          "effective_to": null,
+          "status": "VERIFIED_PRIMARY",
+          "sources": ["NSE_PAGE_NIFTY50_FO"],
+          "verified_on": "2026-11-04",
+          "notes": "NSE: strike interval 50 at all index levels, 35 ITM, 1 ATM, 35 OTM, for weekly and monthly contracts. Quarterly and half-yearly contracts use wider intervals and are out of scope."
+        }
+      ]
+    },
+    "session": {
+      "unit": "NIFTY options normal market open and close, IST",
+      "versions": [
+        {
+          "value": {"open": "09:15", "close": "15:30"},
+          "effective_from": null,
+          "effective_to": "2026-08-02",
+          "status": "UNVERIFIED",
+          "sources": [],
+          "verified_on": null,
+          "notes": "Believed to be the equity derivatives close before the CAS go-live, but not read from a primary document. Fixture mode only."
+        },
+        {
+          "value": {"open": "09:15", "close": "15:40"},
+          "effective_from": "2026-08-03",
+          "effective_to": null,
+          "status": "VERIFIED_PRIMARY",
+          "sources": ["NSE_PAGE_CAS", "NSE_FAOP_75472"],
+          "verified_on": "2026-11-04",
+          "notes": "NSE: 'Equity Derivatives Segment: Session timings are 9:15 am to 3:40 pm'. Circular NSE/FAOP/75472: trading-modality changes in the Equity Derivatives segment effective in LIVE from 2026-08-03."
+        }
+      ]
+    }
+  }
+}

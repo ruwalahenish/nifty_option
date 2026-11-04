@@ -1,0 +1,91 @@
+National Stock Exchange of India Limited
+
+Circular                                               Date: November 29,2024
+
+   Department: FUTURES & OPTIONS
+ Download Ref No: NSE/FAOP/65336
+ Circular Ref. No: 154/2024
+
+All Members,
+
+Revision in Expiry Day of Index derivatives contracts
+
+This is in partial modification to Exchange consolidated circular 61814 dated April 29, 2024 chapter 1.14
+Contract Specification of Index derivatives contracts.
+
+All members are hereby informed to note the following revision in expiry day of the below Index derivatives
+contracts:
+
+Index Derivatives on                     Current Expiry Day              Revised Expiry Day
+BANKNIFTY monthly & quarterly contracts  Last Wednesday of expiry month
+FINNIFTY monthly contracts               Last Tuesday of expiry month      Last Thursday of
+MIDCPNIFTY monthly contracts             Last Monday of expiry month          expiry month
+NIFTYNXT50 monthly contracts             Last Friday of expiry month
+
+1. There is no change in expiry day for NIFTY monthly, weekly, quarterly & half yearly contracts.
+
+2. The circular shall come into effect from EOD of January 01, 2025 i.e. Expiry day for all existing
+      contracts will be revised to "New Expiry Day" on January 01, 2025 (EOD).
+
+3. Any new contract created for trading on / after effective date shall be created as per the revised expiry
+      day as mentioned in the aforesaid table.
+
+4. Revised expiry date of all existing index derivatives contracts shall be available in the contract file
+      which shall be generated on January 01, 2025 end of the day which shall be applicable for trading on
+      January 02,2025. To avoid operational complexities, please refer to Annexure for illustration.
+
+5. Members are requested to note that there is no other change in the contract specifications of index
+      derivatives.
+National Stock Exchange of India Limited
+
+         6. The settlement schedule shall be intimated separately by Clearing Corporations.
+
+         7. Members are advised to take the updated contract.gz, spd_contract.gz, MII - Contract.gz and MII - spd
+               contract.gz file available on extranet path faoftp/faocommon before trading on January 02,2025.
+
+For and on behalf of
+National Stock Exchange of India Limited
+
+Khushal Shah
+Associate Vice President
+
+Toll Free No                                        Email id
+1800-266-0050 (Option 1)                            msm@nse.co.in
+
+                                          Annexure
+
+The revised contract expiries which will be available for the below Index derivatives contracts on
+                                 trading date of January 02,2025 are given below:
+
+Sr  Index                  Contract       Existing Expiry and                 Revised Expiry and
+                          Near Month         Maturity Date                       Maturity Date
+1 BANKNIFTY               Mid Month             29-Jan-25                           30-Jan-25
+                           Far Month            26-Feb-25                           27-Feb-25
+                                                26-Mar-25                           27-Mar-25
+                           Quarterly            25-Jun-25                           26-Jun-25
+                                                24-Sep-25                           25-Sep-25
+                                                                                    24-Dec-25
+                                                31-Dec-25
+                                                                         (as 25-Dec-25 is a holiday)
+                          Near Month      28-Jan-25                                 30-Jan-25
+                                                                                    27-Feb-25
+2   FINNIFTY              Mid Month       25-Feb-25                                 27-Mar-25
+                                                                                    30-Jan-25
+                          Far Month       25-Mar-25                                 27-Feb-25
+                                                                                    27-Mar-25
+                          Near Month      27-Jan-25                                 30-Jan-25
+                                                                                    27-Feb-25
+3 MIDCPNIFTY              Mid Month       24-Feb-25                                 27-Mar-25
+
+                          Far Month       31-Mar-25
+
+                          Near Month      31-Jan-25
+
+4 NIFTYNXT50              Mid Month       28-Feb-25
+
+                          Far Month       28-Mar-25
+
+Note: Dates may be subject to change on account of any holiday declared
+
+                                                                         Page 2 of 2
+

@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "broker": "zerodha",
+  "display_name": "Zerodha Broking Ltd (retail tariff, as published on its own charges page)",
+  "description": "Broker-specific charges only. Statutory and exchange charges live in config/costs/statutory_charges.json. Another broker is a new file in this folder with the same shape.",
+  "model_assumptions": [
+    "Each option leg is one executed order, so a two-leg spread costs 2 brokerage charges to enter and 2 to exit. Whether a broker bills a basket or a partially filled order differently is not modelled.",
+    "The paper account is funded: no debit-balance surcharge unless account_in_debit is set."
+  ],
+  "items": {
+    "option_brokerage": {
+      "unit": "brokerage per executed order for options",
+      "versions": [
+        {
+          "value": {"scheme": "flat_per_executed_order", "amount_inr": 20},
+          "effective_from": null,
+          "effective_to": null,
+          "status": "VERIFIED_BROKER_TARIFF",
+          "sources": ["ZERODHA_CHARGES_PAGE"],
+          "verified_on": "2026-11-04",
+          "notes": "Zerodha: 'Flat Rs. 20 per executed order' for F&O options. Brokerage is also charged on expired, exercised and assigned contracts. Start date of the current tariff not verified."
+        }
+      ]
+    },
+    "debit_balance_surcharge": {
+      "unit": "extra charge per executed order when the account has a debit balance",
+      "versions": [
+        {
+          "value": {"amount_inr": 20, "applies_when": "account_in_debit"},
+          "effective_from": null,
+          "effective_to": null,
+          "status": "VERIFIED_BROKER_TARIFF",
+          "sources": ["ZERODHA_CHARGES_PAGE"],
+          "verified_on": "2026-11-04",
+          "notes": "Zerodha: 'Accounts with a debit balance will be charged an additional Rs 20 per executed order.'"
+        }
+      ]
+    }
+  }
+}

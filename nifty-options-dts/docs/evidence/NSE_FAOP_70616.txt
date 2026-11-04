@@ -1,0 +1,90 @@
+National Stock Exchange of India Limited
+
+Circular
+
+Department: FUTURES & OPTIONS                    Date: October 03, 2025
+Download Ref No: NSE/FAOP/70616
+Circular Ref. No: 176/2025
+
+All Members,
+Revision in Market Lot of Derivative Contracts on Indices
+
+In pursuance of SEBI guidelines for periodic revision of lot size for derivatives contracts specified in the SEBI
+circular SEBI/HO/MRD-PoD2/CIR/P/2024/00181 dated December 30, 2024, the market lot of derivative
+contracts on the following Indices shall be revised as follows:
+
+Sr. No         Underlying Index         Symbol             Present Market Lot  Revised Market lot
+
+   1      Nifty 50                  NIFTY                             75                  65
+   2      Nifty Bank                BANKNIFTY                         35                  30
+   3      Nifty Financial Services  FINNIFTY                          65                  60
+   4      Nifty Mid Select          MIDCPNIFTY                       140                 120
+
+The market lot of derivative contracts on the following Index is unchanged:
+
+Sr. No    Underlying Index              Symbol             Present Market Lot
+                                    NIFTYNXT50                        25
+1 Nifty Next 50
+
+The following are the other points to be noted:
+
+� For purpose of computation of contract value, the average closing price of the underlying index
+     has been taken for one-month period of September 2025.
+
+� This circular shall come into effect from October28, 2025 (EOD).
+� The existing lot size will be applicable for weekly and monthly contracts till December 30,2025
+
+     expiry date. Lot size of existing quarterly and half yearly contracts will be revised on 30-Dec-
+     2025 EOD. For ease of understanding, a summary has been provided in Annexure.
+� The day spread order book will not be available for the combination contract of November 2025
+     � January 2026, December 2025 � January 2026 and December 2025 � February 2026.
+� Members are advised to inform their clients who have positions or take any new positions in the
+     quarterly and half yearly contracts, of the upcoming revision in lot size on the below-mentioned
+     dates.
+National Stock Exchange of India Limited
+
+               � Members are advised to load the updated contract.gz, NSE_FO_contract_ddmmyyyy.csv.gz,
+                    spd_contract.gz and NSE_FO_spdcontract_ddmmyyyy.csv.gz file in the trading application
+                    before trading on respective effective date. This file can be obtained from the directory
+                    faoftp/faocommon on the Extranet server.
+
+For and on behalf of                      Email id
+National Stock Exchange of India Limited  msm@nse.co.in
+
+Khushal Shah
+Associate Vice President
+
+ Toll Free No
+ 1800-266-0050 (Option 1)
+
+                                          Annexure
+
+    Index    Expiration        Last expiry with     First expiry with revised lot size
+Derivatives     Cycle          existing lot size
+               Weekly                                             Expiry Date
+    NIFTY                         Expiry Date                     06-Jan-2026
+    NIFTY      Monthly
+BANKNIFTY                        23-Dec-2025
+  FINNIFTY
+MIDCPNIFTY                     30-Dec-2025                                27-Jan-2026
+
+    Index    Expiration        Expiry Date                                Particulars
+Derivatives     Cycle
+
+NIFTY        Quarterly & Half  31-Mar-2026*         Lot size of all existing quarterly and half
+                  Yearly                             yearly expiry contracts will be revised
+
+                                                        from December 30, 2025 (EOD)
+
+BANKNIFTY    Quarterly         31-Mar-2026*         Lot size of all existing quarterly expiry
+                                                        contracts will be revised from
+                                                          December 30, 2025 (EOD)
+
+* Please note, the March 2026 contract which was introduced as quarterly contract will become far month
+
+contract of the respective index derivatives on December 2025 monthly expiry day (EOD).
+
+Note: Dates may be subject to change on account of any holiday declared.
+
+                                                                                         Page 2 of 2
+

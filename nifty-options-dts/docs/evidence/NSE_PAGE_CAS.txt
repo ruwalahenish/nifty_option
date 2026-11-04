@@ -1,0 +1,33 @@
+[Excerpt: lines of the page text containing relevant keywords; full page hash in config/sources.json]
+ Option Chain 
+ Market Turnover 
+ Holidays 
+ Holidays 
+ Option Chain 
+ Option Chain 
+ View Option chain for the exchange 
+ Exit Option for shareholders 
+ Holidays 
+ Holidays 
+ Option Chain 
+ Option Chain 
+ View Option chain for the exchange 
+ Exit Option for shareholders 
+ Holidays 
+ Market Turnover 
+ *In case of Option Contracts “Value” displayed is “Premium Turnover” 
+ Turnover of Currency Futures and Currency options include turnover of both Non Cross Currency pairs and
+ Currency Turnover is calculated by using latest available Reference rate-FBIL 
+ Turnover of Mutual Fund is based on the orders received on the platform as per the details given below: 
+ Market Timings & Holidays 
+ Market Timings & Holidays 
+ Market Timings & Holidays 
+ Market Timings & Holidays 
+ Session Timings 
+ Except for the session timings, no change in current modalities of the post close session mechanism. 
+ Continuous Trading for Non-CAS Securities: Session timings are 9:15 am to 3:30 pm. 
+ Equity Derivatives Segment: Session timings are 9:15 am to 3:40 pm. 
+ Self-Trade Prevention (STP) mechanism applicable during Call Auction sessions currently (refer point 4.8 of Exchange circular ref no NSE/CMTR/73927 dated April 28, 2026), shall be applicable to CAS session. Accordingly, during order entry/collection period of CAS, where on encountering a potential self-trade, the active order shall be cancelled by default irrespective of option set in the active order. 
+ About Us Structure & Key Personnel Awards and Recognitions Regulations Event Gallery Media Holidays Careers Contact Us Web Information Manager 
+ - Trade Support Toll Free no : 1800 266 0050 (Select IVR option 1) Charged no : 022 68645400 / 022 50998100 (Select IVR option 1) Timings : 8:00 AM to 2:00 AM on subsequent day (Monday to Friday)
+ - Member Compliance Support Toll Free no : 1800 266 0050 (Select IVR option 3) Charged no : 022 68645400 / 022 50998100 (Select IVR option 3) Timings : 9:30 AM to 5:45 PM (Monday to Friday) 

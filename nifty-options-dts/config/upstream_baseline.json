@@ -1,0 +1,7 @@
+{
+  "upstream_path": "../day-trader-skill",
+  "git_head": "3d0f4ef6986f4984b7c6bd46f7ff4f87744c3abd",
+  "file_count": 85,
+  "tree_sha256": "9c2eee780d6fbfd76f5466f8f67e75397732ea923cc39bebe86536dca09474e6",
+  "note": "Files outside .git and __pycache__. Do not edit by hand."
+}

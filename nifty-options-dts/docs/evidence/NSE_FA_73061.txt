@@ -1,0 +1,62 @@
+Department: FINANCE & ACCOUNTS                                                       Date: February 27, 2026
+Download Ref No: NSE/FA/73061
+
+Circular Ref. No: 1
+
+To all the Trading Members in the Cash Market Segment and Equity Derivatives Segment
+
+Sub: Revision in Transaction Charges
+
+Trading Members may recall that the Exchange vide circular no. NSE/FA/56129 dated March 24, 2023, had reduced its
+transaction charges for cash market segment by Rs 20 per crore of traded value, Equity Futures by Rs. 10 per crore of
+
+traded value and for Equity options by Rs. 300 per crore traded premium value. Further, to augment the corpus of NSE
+IPFT the Exchange had enhanced the contribution of the Trading Member towards the corpus of NSE IPFT by Rs. 9.99 per
+crore of traded value for Cash Market Segment & Equity Futures and by Rs. 49.99 per crore of traded premium value for
+Equity Options. Thus, the Trading Member may note that the Exchange had reduced the overall outflow of the trading
+members by Rs.10.01 per crore of traded value for Cash Market Segment, Re.0.01 per crore of traded value for Equity
+Futures and Rs. 250.01 per crore of traded premium value for Equity Options.
+
+Further, the Exchange vide Circular No. NSE/FA/64323 dated September 27, 2024, had revised its transaction charges
+in compliance to SEBI circular no. SEBI/HO/MRD/TPD-1/P/CIR/2024/92 dated July 1,2024, which directed Market
+Infrastructure Institutions (MIIs) that the charge structure of the MII should be uniform and equal for all its members
+instead of current slab-wise structure which is dependent on volume of the trading members.
+
+Trading Members may note that since the corpus NSE IPFT has been replenished and is currently adequate, the
+Exchange has now decided to roll back the increase made in the Trading Member's contributions towards NSE IPFT at
+the level levied prior to April 1, 2023 and revised the transaction charges accordingly, thereby ensuring no impact in the
+overall outflow of the Trading Members.
+
+In this direction, it may be noted that the exchange has now decided to levy the transaction charges and contribution to
+
+NSE IPFT from the Trading Members as follows:
+
+                                                                       (Rs. per crore of Traded Value)
+
+Segment              Existing outflow of the Trading Member            Revised outflow of the Trading Member
+
+             Transaction Contribution          Total                   Transaction Contribution         Total
+                     Charges to NSE IPFT                               Charges       to NSE IPFT
+
+Cash Market  Rs. 297       Rs. 10 each         Rs. 307 each            Rs. 306.99    Rs. 0.01 each  Rs. 307 each
+             each side     side                side                    each side     side           side
+Equity                                                                 Rs. 182.99
+futures      Rs. 173       Rs. 10 each         Rs. 183 each            each side     Rs. 0.01 each  Rs. 183 each
+Equity       each side     side                side                                  side           side
+Options (on                                                            Rs. 3,552.99
+premium)     Rs. 3,503     Rs. 50 each         Rs. 3,553               each side     Rs. 0.01 each  Rs. 3,553
+             each side     side                each side                             side           each side
+
+The above revision will be applicable with effect from March 1, 2026.
+
+For and on behalf of
+National Stock Exchange of India Limited
+
+  Ian De Souza                                               Email id
+  Chief Financial Officer                                    dl-fa-mem@nse.co.in
+
+    Telephone No
+    26598142
+
+`
+

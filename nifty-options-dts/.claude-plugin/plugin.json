@@ -1,0 +1,8 @@
+{
+  "name": "nifty-options-dts",
+  "description": "NIFTY intraday options PAPER-trading skills (defined-risk debit spreads). Educational. Paper only, simulated fills, not financial advice. Install as a whole plugin: the skills share the nifty_core package.",
+  "version": "0.1.0",
+  "license": "MIT",
+  "keywords": ["paper-trading", "nifty", "options", "education"],
+  "skills": "./skills"
+}

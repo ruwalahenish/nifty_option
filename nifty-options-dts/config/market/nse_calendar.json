@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "description": "NSE F&O trading calendar. A year is usable only if listed here. Holidays can be added or changed by later NSE circulars; re-verify before relying on a future date.",
+  "calendars": {
+    "2026": {
+      "status": "VERIFIED_PRIMARY",
+      "sources": [
+        "NSE_FAOP_71777",
+        "NSE_CMTR_71775"
+      ],
+      "verified_on": "2026-11-04",
+      "notes": "F&O circular NSE/FAOP/71777 (2025-12-12) and the Capital Market circular list the same 15 weekday holidays. Ad hoc holidays announced after that circular are NOT included.",
+      "trading_holidays": [
+        {
+          "date": "2026-01-26",
+          "description": "Republic Day"
+        },
+        {
+          "date": "2026-03-03",
+          "description": "Holi"
+        },
+        {
+          "date": "2026-03-26",
+          "description": "Shri Ram Navami"
+        },
+        {
+          "date": "2026-03-31",
+          "description": "Shri Mahavir Jayanti"
+        },
+        {
+          "date": "2026-04-03",
+          "description": "Good Friday"
+        },
+        {
+          "date": "2026-04-14",
+          "description": "Dr. Baba Saheb Ambedkar Jayanti"
+        },
+        {
+          "date": "2026-05-01",
+          "description": "Maharashtra Day"
+        },
+        {
+          "date": "2026-05-28",
+          "description": "Bakri Id"
+        },
+        {
+          "date": "2026-06-26",
+          "description": "Muharram"
+        },
+        {
+          "date": "2026-09-14",
+          "description": "Ganesh Chaturthi"
+        },
+        {
+          "date": "2026-10-02",
+          "description": "Mahatma Gandhi Jayanti"
+        },
+        {
+          "date": "2026-10-20",
+          "description": "Dussehra"
+        },
+        {
+          "date": "2026-11-10",
+          "description": "Diwali-Balipratipada"
+        },
+        {
+          "date": "2026-11-24",
+          "description": "Prakash Gurpurb Sri Guru Nanak Dev"
+        },
+        {
+          "date": "2026-12-25",
+          "description": "Christmas"
+        }
+      ],
+      "weekend_holidays": [
+        {
+          "date": "2026-02-15",
+          "description": "Mahashivratri"
+        },
+        {
+          "date": "2026-03-21",
+          "description": "Id-Ul-Fitr (Ramadan Eid)"
+        },
+        {
+          "date": "2026-08-15",
+          "description": "Independence Day"
+        },
+        {
+          "date": "2026-11-08",
+          "description": "Diwali Laxmi Pujan (Muhurat trading held)"
+        }
+      ],
+      "special_sessions": [
+        {
+          "date": "2026-11-08",
+          "kind": "MUHURAT",
+          "pre_open_start": "14:05",
+          "open": "14:20",
+          "close": "15:40",
+          "sources": [
+            "NSE_FAOP_76940"
+          ],
+          "verified_on": "2026-11-04",
+          "notes": "Sunday session. Pre-open 14:05 to 14:20, normal market 14:20 to 15:40. All trades result in settlement obligations."
+        }
+      ]
+    }
+  }
+}

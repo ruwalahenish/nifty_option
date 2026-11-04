@@ -1,0 +1,169 @@
+{
+  "schema_version": 1,
+  "retrieved_on": "2026-11-04",
+  "note": "sha256 is of the bytes downloaded on retrieved_on. Web pages change; the hash pins what was read. Excerpts are in docs/evidence/.",
+  "sources": {
+    "NSE_FAOP_70616": {
+      "title": "NSE circular 176/2025 (NSE/FAOP/70616) Revision in Market Lot of Derivative Contracts on Indices",
+      "url": "https://nsearchives.nseindia.com/content/circulars/FAOP70616.pdf",
+      "document_date": "2025-10-03",
+      "kind": "NSE_CIRCULAR",
+      "sha256": "0718cf0cc7e6c74105dc946497369270fca807f59912586560c9552cad8050ef",
+      "retrieved_on": "2026-11-04",
+      "evidence": "docs/evidence/NSE_FAOP_70616.txt"
+    },
+    "NSE_FAOP_68685": {
+      "title": "NSE circular 108/2025 (NSE/FAOP/68685) Revision in Expiry Day of Index and Stock Derivatives Contracts",
+      "url": "https://nsearchives.nseindia.com/content/circulars/FAOP68685.pdf",
+      "document_date": "2025-06-23",
+      "kind": "NSE_CIRCULAR",
+      "sha256": "8f7992ca6d069447cd41559c6f2c2867effc8baf7524bf2bde03714a8a1e0722",
+      "retrieved_on": "2026-11-04",
+      "evidence": "docs/evidence/NSE_FAOP_68685.txt"
+    },
+    "NSE_FAOP_65336": {
+      "title": "NSE circular 154/2024 (NSE/FAOP/65336) Revision in Expiry Day of Index derivatives contracts (context only)",
+      "url": "https://nsearchives.nseindia.com/content/circulars/FAOP65336.pdf",
+      "document_date": "2024-11-29",
+      "kind": "NSE_CIRCULAR",
+      "sha256": "54371bb2fa00744fb4d6c12b0ab513769b00591da003ac763726febf65962b2a",
+      "retrieved_on": "2026-11-04",
+      "evidence": "docs/evidence/NSE_FAOP_65336.txt"
+    },
+    "NSE_FA_64232": {
+      "title": "NSE circular 5/2024 (NSE/FA/64232) Revision in Transaction Charges",
+      "url": "https://nsearchives.nseindia.com/content/circulars/FA64232.pdf",
+      "document_date": "2024-09-27",
+      "kind": "NSE_CIRCULAR",
+      "sha256": "85b816208f33bdd1c6c0d827b1ba996aba1fe08fe883a6d31c6a2c0ad55304a4",
+      "retrieved_on": "2026-11-04",
+      "evidence": "docs/evidence/NSE_FA_64232.txt"
+    },
+    "NSE_FA_73061": {
+      "title": "NSE circular (NSE/FA/73061) Revision in Transaction Charges",
+      "url": "https://nsearchives.nseindia.com/content/circulars/FA73061.pdf",
+      "document_date": "2026-02-27",
+      "kind": "NSE_CIRCULAR",
+      "sha256": "6085601a26177ed61e37e5347960b936d71464ab625d6a0d9fe72b2ec838ac09",
+      "retrieved_on": "2026-11-04",
+      "evidence": "docs/evidence/NSE_FA_73061.txt"
+    },
+    "NSE_FATAX_63809": {
+      "title": "NSE circular 2/2024 (NSE/FATAX/63809) Changes in relation to rates of Securities Transaction Tax",
+      "url": "https://nsearchives.nseindia.com/content/circulars/FATAX63809.pdf",
+      "document_date": "2024-09-09",
+      "kind": "NSE_CIRCULAR",
+      "sha256": "e72218a4aaffccfc5ea485c714bf83d019c2bb0a5ebb4724029552b0cd7fc31f",
+      "retrieved_on": "2026-11-04",
+      "evidence": "docs/evidence/NSE_FATAX_63809.txt"
+    },
+    "NSE_FATAX_73524": {
+      "title": "NSE circular 02/2026 (NSE/FATAX/73524) Changes in relation to rates of Securities Transaction Tax",
+      "url": "https://nsearchives.nseindia.com/content/circulars/FATAX73524.pdf",
+      "document_date": "2026-03-31",
+      "kind": "NSE_CIRCULAR",
+      "sha256": "f4cbd1f917f88dcb9d59b95e0e9ef8bbb98017edbbdd16669a3d40776416a9f6",
+      "retrieved_on": "2026-11-04",
+      "evidence": "docs/evidence/NSE_FATAX_73524.txt"
+    },
+    "FINANCE_ACT_2026_GAZETTE": {
+      "title": "The Finance Act, 2026 (Act No. 4 of 2026), Gazette of India, assent 2026-03-30",
+      "url": "https://egazette.gov.in/WriteReadData/2026/271439.pdf",
+      "document_date": "2026-03-30",
+      "kind": "LEGISLATION",
+      "sha256": "f01136356e61b2534328153941a68f13afd06fe8587d347757c89101d9cc564f",
+      "retrieved_on": "2026-11-04",
+      "evidence": null
+    },
+    "FINANCE_BILL_2026_MEMO": {
+      "title": "Memorandum explaining the provisions in the Finance Bill, 2026 (clause 35, STT)",
+      "url": "https://www.indiabudget.gov.in/doc/memo.pdf",
+      "document_date": "2026-02-01",
+      "kind": "BILL_MEMORANDUM",
+      "sha256": "78f81425565e23b16424b113d6a91e13292d912a8d55b75c5387f195159f3416",
+      "retrieved_on": "2026-11-04",
+      "evidence": null
+    },
+    "NSE_CMTR_71775": {
+      "title": "NSE circular 172/2025 (NSE/CMTR/71775) Trading holidays 2026, Capital Market segment",
+      "url": "https://nsearchives.nseindia.com/content/circulars/CMTR71775.pdf",
+      "document_date": "2025-12-12",
+      "kind": "NSE_CIRCULAR",
+      "sha256": "aa97e0afc0ce394097f2fc62631c68e3c2e4c7c23541ed35f21d9fc06b0dcacb",
+      "retrieved_on": "2026-11-04",
+      "evidence": "docs/evidence/NSE_CMTR_71775.txt"
+    },
+    "NSE_FAOP_71777": {
+      "title": "NSE circular 212/2025 (NSE/FAOP/71777) Trading holidays 2026, F&O segment",
+      "url": "https://nsearchives.nseindia.com/content/circulars/FAOP71777.pdf",
+      "document_date": "2025-12-12",
+      "kind": "NSE_CIRCULAR",
+      "sha256": "5a2079cd78b2e6b536ef0d28300e63b645721bed22cc82a91facf5945f3296ea",
+      "retrieved_on": "2026-11-04",
+      "evidence": "docs/evidence/NSE_FAOP_71777.txt"
+    },
+    "NSE_FAOP_76940": {
+      "title": "NSE circular 142/2026 (NSE/FAOP/76940) Muhurat Trading session on account of Diwali, F&O segment",
+      "url": "https://nsearchives.nseindia.com/content/circulars/FAOP76940.pdf",
+      "document_date": "2026-10-19",
+      "kind": "NSE_CIRCULAR",
+      "sha256": "78d97b9c3632d78272a59dd38349ec1124fa6c34b40efe5a77061992cd7478ff",
+      "retrieved_on": "2026-11-04",
+      "evidence": "docs/evidence/NSE_FAOP_76940.txt"
+    },
+    "NSE_FAOP_75472": {
+      "title": "NSE circular 109/2026 (NSE/FAOP/75472) CAS go-live of trading modalities in Equity Derivatives from 2026-08-03",
+      "url": "https://nsearchives.nseindia.com/content/circulars/FAOP75472.pdf",
+      "document_date": "2026-07-30",
+      "kind": "NSE_CIRCULAR",
+      "sha256": "226a935c47d3baa819a26a729fe2a58bfcf315ab6ca81111df9fd10eff070c78",
+      "retrieved_on": "2026-11-04",
+      "evidence": "docs/evidence/NSE_FAOP_75472.txt"
+    },
+    "NSE_PAGE_CAS": {
+      "title": "NSE web page: Closing Auction Session (CAS), states Equity Derivatives segment session 9:15 am to 3:40 pm",
+      "url": "https://www.nseindia.com/static/products-services/closing-auction-session",
+      "document_date": null,
+      "kind": "NSE_WEB_PAGE",
+      "sha256": "16650185dbe5c593b22b4da8113cde3f65f03a87490ec1eb8656cba0723b35c6",
+      "retrieved_on": "2026-11-04",
+      "evidence": "docs/evidence/NSE_PAGE_CAS.txt"
+    },
+    "NSE_PAGE_NIFTY50_FO": {
+      "title": "NSE web page: NIFTY 50 F&O (expiry day, holiday rule, strike intervals)",
+      "url": "https://www.nseindia.com/static/products-services/equity-derivatives-nifty50",
+      "document_date": null,
+      "kind": "NSE_WEB_PAGE",
+      "sha256": "1f1aa739af39555d1ee19070f7192af17d5521de7deefab5b2780f9327c81615",
+      "retrieved_on": "2026-11-04",
+      "evidence": "docs/evidence/NSE_PAGE_NIFTY50_FO.txt"
+    },
+    "NSE_PAGE_CONTRACT_SPECS": {
+      "title": "NSE web page: Equity derivatives contract specifications (price steps / tick size)",
+      "url": "https://www.nseindia.com/static/products-services/equity-derivatives-contract-specifications",
+      "document_date": null,
+      "kind": "NSE_WEB_PAGE",
+      "sha256": "ea750d175baae39dc1e9b78a8edc1fa33deb2af6fb9240155b365139d3f8bedc",
+      "retrieved_on": "2026-11-04",
+      "evidence": "docs/evidence/NSE_PAGE_CONTRACT_SPECS.txt"
+    },
+    "NSE_PAGE_LEVIES": {
+      "title": "NSE web page: SEBI Turnover Fees, STT and Other levies (SEBI fee, stamp duty, GST)",
+      "url": "https://www.nseindia.com/static/invest/first-time-investor-sebi-turnover-fees-stt-other-levies",
+      "document_date": null,
+      "kind": "NSE_WEB_PAGE",
+      "sha256": "d199475ca8d21e39f2de84bd2d2b294ede6e7c6d80d040b8ed3eb161bfa01fde",
+      "retrieved_on": "2026-11-04",
+      "evidence": "docs/evidence/NSE_PAGE_LEVIES.txt"
+    },
+    "ZERODHA_CHARGES_PAGE": {
+      "title": "Zerodha Broking Ltd: brokerage charges, fees and taxes (own tariff page)",
+      "url": "https://zerodha.com/charges/",
+      "document_date": null,
+      "kind": "BROKER_TARIFF_PAGE",
+      "sha256": "338ff5f3a88405b911570bc277777938678906b894e47d9ce87ebdb936918aa9",
+      "retrieved_on": "2026-11-04",
+      "evidence": "docs/evidence/ZERODHA_CHARGES_PAGE.txt"
+    }
+  }
+}

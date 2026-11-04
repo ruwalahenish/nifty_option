@@ -1,0 +1,7 @@
+[project]
+name = "nifty-options-dts"
+version = "0.1.0"
+description = "NIFTY intraday options PAPER-trading system (defined-risk debit spreads). Educational. No live trading."
+requires-python = ">=3.8"
+dependencies = []   # standard library only, enforced by tests/safety/test_repo_hygiene.py
+license = { text = "MIT" }

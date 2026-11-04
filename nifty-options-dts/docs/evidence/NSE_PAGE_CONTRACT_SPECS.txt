@@ -1,0 +1,49 @@
+[Excerpt: lines of the page text containing relevant keywords; full page hash in config/sources.json]
+ Option Chain 
+ Market Turnover 
+ Holidays 
+ Holidays 
+ Option Chain 
+ Option Chain 
+ View Option chain for the exchange 
+ Exit Option for shareholders 
+ Holidays 
+ Holidays 
+ Option Chain 
+ Option Chain 
+ View Option chain for the exchange 
+ Exit Option for shareholders 
+ Holidays 
+ Market Turnover 
+ *In case of Option Contracts “Value” displayed is “Premium Turnover” 
+ Turnover of Currency Futures and Currency options include turnover of both Non Cross Currency pairs and
+ Currency Turnover is calculated by using latest available Reference rate-FBIL 
+ Turnover of Mutual Fund is based on the orders received on the platform as per the details given below: 
+ Market Timings & Holidays 
+ Market Timings & Holidays 
+ Market Timings & Holidays 
+ Market Timings & Holidays 
+ Market Timings & Holidays 
+ Market Timings & Holidays 
+ Market Timing & Holidays 
+ Index Options 
+ Options on Individual Securities 
+ Expiry Date 
+ Option Type 
+ Nifty 50 Index  will have 4 weekly expiration contracts (excluding monthly contracts) and 3 monthly expiration contracts. 
+ Nifty Bank Index, Nifty Financial Services Index, Nifty Midcap Select Index, Nifty Next 50 Index and Nifty India FPI 150 Index will have 3 monthly expiration contracts 
+ Additionally Nifty 50 Index options and Nifty Bank Index options will have Three quarterly expiries (March, June, Sept & Dec cycle). 
+ Nifty 50 index will also have long term index option contracts i.e. next 8 half yearly expiries (Jun, Dec cycle) after the three quarterly expires will be provided. 
+ Expiry Day 
+ Nifty 50 Index, Nifty Bank Index, Nifty Financial Services Index, Nifty Midcap Select Index, Nifty Next 50 Index and Nifty India FPI 150 Index : Tuesday of the expiry period. If the Tuesday is a trading holiday, then the expiry day is the previous trading day. 
+ For Individual Securities: Tuesday of the expiry period. If the last Tuesday is a trading holiday, then the expiry day is the previous trading day. 
+ Strike Price Intervals 
+ Price Steps 
+ Tick Size 
+ Circular reference: NSE/FAOP/67135 
+ The stock futures shall have the same tick size as applicable for underlying security in CM Segment  (93.6 KB) 
+ Circular reference: NSE/FAOP/67134 
+ Tick size is based on Underlying Security Price 
+ About Us Structure & Key Personnel Awards and Recognitions Regulations Event Gallery Media Holidays Careers Contact Us Web Information Manager 
+ - Trade Support Toll Free no : 1800 266 0050 (Select IVR option 1) Charged no : 022 68645400 / 022 50998100 (Select IVR option 1) Timings : 8:00 AM to 2:00 AM on subsequent day (Monday to Friday)
+ - Member Compliance Support Toll Free no : 1800 266 0050 (Select IVR option 3) Charged no : 022 68645400 / 022 50998100 (Select IVR option 3) Timings : 9:30 AM to 5:45 PM (Monday to Friday) 

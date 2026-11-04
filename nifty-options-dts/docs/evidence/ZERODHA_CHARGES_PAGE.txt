@@ -1,0 +1,103 @@
+[Excerpt: lines of the page text containing relevant keywords; full page hash in config/sources.json]
+ Zerodha brokerage charges, fees & taxes on trading and investing 
+ Brokerage calculator 
+ — ₹ 0 brokerage.
+ intraday trades across equity, currency, and commodity trades. Flat ₹20 on all option trades.
+ F&O - Options 
+ Brokerage 
+ Zero Brokerage 
+ STT/CTT 
+ 0.15% of the intrinsic value on options that are bought and exercised
+ Transaction charges 
+ NSE: 0.00307% BSE: 0.00375% 
+ NSE: 0.00307% BSE: 0.00375% 
+ GST 
+ 18% on (brokerage + SEBI charges + transaction charges) 
+ 18% on (brokerage + SEBI charges + transaction charges) 
+ 18% on (brokerage + SEBI charges + transaction charges) 
+ 18% on (brokerage + SEBI charges + transaction charges) 
+ SEBI charges 
+ Stamp charges 
+ 0.003% or ₹300 / crore on buy side 
+ 0.003% or ₹300 / crore on buy side 
+ *SEBI charges will be reduced to ₹15 per crore once the regulator announces a date. -->
+ F&O - Options 
+ Brokerage 
+ STT/CTT 
+ 0.15% of the intrinsic value on options that are bought and exercised
+ Transaction charges 
+ GST 
+ 18% on (brokerage + SEBI charges + transaction charges) 
+ 18% on (brokerage + SEBI charges + transaction charges) 
+ SEBI charges 
+ Stamp charges 
+ 0.003% or ₹300 / crore on buy side 
+ *SEBI charges will be reduced to ₹15 per crore once the regulator announces a date. -->
+ Currency options 
+ Brokerage 
+ STT/CTT 
+ No STT 
+ No STT 
+ Transaction charges 
+ GST 
+ 18% on (brokerage + SEBI charges + transaction charges) 
+ 18% on (brokerage + SEBI charges + transaction charges) 
+ SEBI charges 
+ Stamp charges 
+ Commodity options 
+ Brokerage 
+ STT/CTT 
+ Transaction charges 
+ GST 
+ 18% on (brokerage + SEBI charges + transaction charges) 
+ 18% on (brokerage + SEBI charges + transaction charges) 
+ SEBI charges 
+ Stamp charges 
+ 0.003% or ₹300 / crore on buy side 
+ Brokerage 
+ Transaction charges 
+ SEC Fees: 0.00206% on sell trade value FINRA fee: $0.000195 per share (max $9.79) on sell quantity* IFSCA Turnover Fee: 0.005% on trade value (Buy & Sell) 
+ GST 
+ 18% on brokerage amount 
+ your costs upfront using our brokerage calculator 
+ ₹100 per year + 18% GST, charged quarterly 
+ ₹300 per year + 18% GST, charged quarterly 
+ For a non-BSDA account, AMC is ₹300 per year + 18% GST, regardless of holdings value, charged quarterly.
+ Charges for optional value added services 
+ Tickertape 
+ When trading at Zerodha, STT/CTT can be a lot more than the brokerage
+ Transaction/Turnover Charges 
+ BSE has revised transaction charges in XC, XD, XT, Z and ZP groups to
+ ₹10,000 per crore w.e.f 01.01.2016. (XC and XD groups have been merged into a new group X w.e.f 01.12.2017) 
+ BSE has revised transaction charges in SS and ST groups to ₹1,00,000
+ per crore of gross turnover. 
+ BSE has revised transaction charges for group A, B and other non exclusive scrips (non-exclusive scrips from group E, F, FC, G, GC, W, T) at ₹375 per crore of turnover on flat rate basis w.e.f. December 1, 2022. 
+ BSE has revised transaction charges in M, MT, TS and MS groups to ₹275 per crore of gross turnover. 
+ Stamp charges 
+ Stamp charges by the Government of India as per the Indian Stamp Act of 1899 for transacting in instruments on the stock exchanges and depositories. 
+ NRI brokerage charges 
+ ₹500 + GST as yearly account maintenance charges (AMC) charges.
+ Charges for Investor's Protection Fund Trust (IPFT) by NSE 
+ Equity and Futures - ₹0.01 per crore + GST of the traded value. 
+ Options - ₹0.01 per crore + GST traded value (premium value). 
+ Currency - ₹0.05 per lakh + GST of turnover for Futures and ₹2 per lakh + GST of premium for Options. 
+ MTF Brokerage: 0.3% or Rs. 20/executed order, whichever is lower. 
+ MTF pledge charge: ₹15 + GST per pledge and unpledge request per ISIN. 
+ GST 
+ brokerage + SEBI charges + transaction charges) 
+ SEBI Charges 
+ Charged at ₹10 per crore + GST by Securities and Exchange Board of
+ ₹15.34 per scrip (₹3.5 CDSL fee + ₹9.5 Zerodha fee + ₹2.34 GST) is charged on the trading account ledger when stocks are sold, irrespective of quantity. 
+ ₹30 + GST per pledge request per ISIN. 
+ For non-BSDA demat accounts: ₹300/year + 18% GST charged quarterly (90 days). To learn more about AMC, Click here 
+ ₹20 plus GST will be charged for OFS / buyback / takeover / delisting
+ 18% GST for subsequent requests. 
+ ₹9 + GST (Not levied on transfers done via UPI) 
+ Delivery & MTF Brokerage: 0.5% per executed order. 
+ Intraday Brokerage: 0.05% per executed order. 
+ Brokerage will not exceed the rates specified by SEBI and the exchanges.
+ Brokerage is also charged on expired, exercised, and assigned options contracts.
+ and HUFs need to pay 0.1% or ₹20 (whichever is less) as delivery brokerage. A brokerage of 0.25% of the contract value will be charged for contracts where physical delivery happens. For netted off positions in physically settled contracts, a brokerage of 0.1% will be charged.
+ Brokerage charges 
+ Market holidays 
+ a ticket here .

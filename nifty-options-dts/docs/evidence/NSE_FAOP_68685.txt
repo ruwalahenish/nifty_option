@@ -1,0 +1,138 @@
+National Stock Exchange of India Limited
+
+Circular
+
+Department: FUTURES & OPTIONS                   Date: June 23, 2025
+Download Ref No: NSE/FAOP/68685
+Circular Ref. No: 108/2025
+
+All Members,
+
+Revision in Expiry Day of Index and Stock Derivatives Contracts
+
+This is in partial modification to chapter 1.14 Contract Specification of Index and stock derivatives contracts in
+Exchange consolidated circular reference 67775 dated April 30, 2025 and continuation with circular reference 68589
+dated June 17,2025 on Revision in Expiry Day of Index and Stock derivatives contracts.
+
+All members are hereby informed to note the following revision in expiry day of the Index and stock derivatives
+contracts below:
+
+Derivatives Particulars                  Current Expiry Day          Revised Expiry Day
+
+          NIFTY monthly, quarterly and half Last Thursday of expiry  Last Tuesday of expiry month
+                                                                     Tuesday of the week
+          yearly contracts               month
+                                                                     Last Tuesday of expiry month
+          NIFTY weekly contracts         Thursday of the week
+
+Index     BANKNIFTY monthly & quarterly  Last Thursday of expiry
+Stocks    contracts                      month
+
+          FINNIFTY, MIDCPNIFTY and
+          NIFTYNXT50 monthly contracts
+
+          All Monthly contracts
+
+1. The circular shall come into effect from August 28, 2025 (EOD) i.e. Expiry day for all existing contracts
+     will be revised to "New Expiry Day" on August 28, 2025 (EOD).
+
+2. Any new contract created for trading on / after effective date shall be created as per the revised expiry
+     day as mentioned in the aforesaid table.
+
+3. Revised expiry date of all existing derivatives contracts shall be available in the contract file which shall be
+     generated on August 28,2025 (EOD) end of the day which shall be applicable for trading on August 29,2025.
+     To avoid operational complexities, please refer to Annexure for illustration.
+National Stock Exchange of India Limited
+
+               4. Members are requested to note that there is no other change in the contract specifications of index and
+                     stock derivatives.
+
+               5. The settlement schedule shall be intimated separately by Clearing Corporations.
+
+               6. Members are advised to take the updated contract.gz, spd_contract.gz, MII - Contract.gz and MII - spd
+                     contract.gz file available on extranet path faoftp/faocommon before trading on August 29, 2025.
+
+         For and on behalf of
+         National Stock Exchange of India Limited
+
+         Khushal Shah
+         Associate Vice President
+
+Toll Free No                                 Email id
+1800-266-0050 (Option 1)                     msm@nse.co.in
+
+                                             Annexure
+
+The revised contract expiries which will be available for the below Index derivatives contracts on trading date of
+August 29,2025 are given below:
+
+Sr Index/ Stock     Contract    Existing Date Revised       Existing Date        Revised Date
+       derivatives                                   Date
+
+1 NIFTY             Weekly      Thursday of    Tuesday of   04-Sep-25            09-Sep-25
+                    Expiry      the expiry     the expiry   11-Sep-25            16-Sep-25
+                                week           week         18-Sep-25            23-Sep-25
+
+                                                            01-Oct-25            07-Oct-25
+
+                                                            (since 02-Oct-25 is
+                                                            holiday)
+
+                    Near Month  Last Thursday  Last         25-Sep-25            30-Sep-25
+                    Mid Month   of the expiry  Tuesday of   30-Oct-25            28-Oct-25
+                    Far Month   month          the expiry   -                    25-Nov-25
+                                               month
+
+                                                                                 (new contract
+                                                                                 generated with
+                                                                                 Tuesday expiry)
+
+                    Quarterly                               24-Dec-25            30-Dec-25
+
+                                                                                            Page 2 of 4
+National Stock Exchange of India Limited              26-Mar-26         31-Mar-26
+                                                      25-Jun-26         30-Jun-26
+                                         Half Yearly  31-Dec-26         29-Dec-26
+                                                      24-Jun-27         29-Jun-27
+2 BANKNIFTY     Near Month                            30-Dec-27         28-Dec-27
+                Mid Month                             29-Jun-28         27-Jun-28
+                Far Month                             28-Dec-28         26-Dec-28
+                                                      28-Jun-29         26-Jun-29
+                Quarterly                             27-Dec-29         24-Dec-29
+                                                                        (since 25-Dec-29 is
+3 FINNIFTY,     Near Month                            27-Jun-30         holiday)
+                                                      (New half yearly  25-Jun-30
+MIDCPNIFTY and  Mid Month                             contracts)
+                                                      25-Sep-25         30-Sep-25
+NIFTYNXT50                                            30-Oct-25         28-Oct-25
+                                                      -                 25-Nov-25
+                Far Month                                               (new contract
+                                                      24-Dec-25         generated with
+                                                      26-Mar-26         Tuesday expiry)
+                                                      25-Jun-26         30-Dec-25
+                                                      25-Sep-25         31-Mar-26
+                                                      30-Oct-25         30-Jun-26
+                                                      -                 30-Sep-25
+                                                                        28-Oct-25
+                                                                        25-Nov-25
+                                                                        (new contract
+                                                                        generated with
+                                                                        Tuesday expiry)
+
+                                                                        Page 3 of 4
+National Stock Exchange of India Limited
+
+4 Single Stock  Near Month                25-Sep-25                      30-Sep-25
+                                          30-Oct-25
+                Mid Month                 -                              28-Oct-25
+
+                Far Month                                                25-Nov-25
+
+                                                                         (new contract
+                                                                         generated with
+                                                                         Tuesday expiry)
+
+Note: Dates may be subject to change on account of any holiday declared
+
+                                                                         Page 4 of 4
+

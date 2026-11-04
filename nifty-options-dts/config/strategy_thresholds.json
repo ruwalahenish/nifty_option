@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "kind": "STRATEGY_ASSUMPTIONS",
+  "description": "Version 1 candidate-selection assumptions. These are our choices, chosen by reasoning, NOT validated on real market data and NOT tuned on the synthetic fixtures. They are separate from exchange facts (config/contracts), cost rules (config/costs), risk limits (config/config.example.json) and regime thresholds (config/regime_thresholds.json).",
+  "values": {
+    "min_days_to_expiry": 2,
+    "long_strike_offsets_steps": [0, 1],
+    "width_points_options": [100, 150],
+    "candidate_lots": 1,
+    "max_leg_spread_pct": 3.0,
+    "min_leg_volume": 5000,
+    "min_leg_open_interest": 20000,
+    "min_depth_lots": 1,
+    "max_debit_to_width": 0.65,
+    "max_spot_divergence_pct": 0.25,
+    "block_on_high_impact_event": true
+  }
+}
