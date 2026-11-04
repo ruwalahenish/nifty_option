@@ -15,7 +15,8 @@ Status: plan APPROVED with the decisions below. Implementation proceeds phase by
 | P8 Paper execution | done and approved (docs/PAPER_EXECUTION.md) |
 | P9 Position management | done and approved (docs/POSITION_MANAGEMENT.md) |
 | P10 Skills, CLI, approval, journal, end-to-end | done, awaiting your review (docs/END_TO_END.md). The journal and reports originally planned as P9 were built here |
-| P11 onward | P11 final audit and P12 not started; P12 is blocked on choosing a read-only data source |
+| P11 Final safety audit | done, awaiting your review (docs/SAFETY_AUDIT.md). One gap fixed: the CLI could miss the project KILL file |
+| P12 Real-data paper collection | done for your own exported files, awaiting your review (docs/REAL_DATA.md). No vendor provider built: none chosen |
 
 ### Approved decisions (override anything below that conflicts)
 

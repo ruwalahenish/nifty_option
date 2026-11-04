@@ -16,7 +16,10 @@ python -m nifty_core.cli ticket --scenario NAME --at HH:MM
 python -m nifty_core.cli run-day --scenario NAME [--journal PATH] [--answer FINGERPRINT="yes"]
 python -m nifty_core.cli report --journal PATH
 python -m nifty_core.cli verify-journal --journal PATH
+python -m nifty_core.cli check-data --scenario NAME_OR_PATH
 ```
+
+`check-data` validates a data file the way `run-day` would and prints a summary. Real recorded data is covered in [REAL_DATA.md](REAL_DATA.md).
 
 `regime`, `candidate`, `risk` and `ticket` are stateless views of one moment (a fresh day ledger is assumed for `risk` and `ticket`). Only `run-day` carries state through a day.
 

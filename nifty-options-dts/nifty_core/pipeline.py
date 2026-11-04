@@ -18,7 +18,7 @@ from decimal import Decimal
 from . import approval as approval_mod
 from .contracts import ContractSpecs, hhmm
 from .costs.engine import load_cost_engine
-from .errors import RiskViolation
+from .errors import JournalError, RiskViolation
 from .execution import paper as paper_mod
 from .guards import paper_only
 from .journal import journal as journal_mod
@@ -71,6 +71,26 @@ def tick_times(ctx, day):
     return out
 
 
+def _label(provider):
+    """The provider's data label (FIXTURE_SYNTHETIC, RECORDED_REAL...), or None when it cannot say, which the engines
+    treat as unverified in real mode."""
+    return getattr(getattr(provider, "scenario", None), "data_label", None)
+
+
+def _refuse_second_traded_run(journal, day):
+    """Daily limits live inside one run, so a second run of a day that already traded would start with fresh limits.
+    For REAL data that would be a way round the 2-trade and daily-loss limits, so it is refused. (A run that only
+    showed tickets, or ended without an entry, may be repeated, which is how a ticket gets answered.)"""
+    if journal.data_source != "real":
+        return
+    records = journal_mod.read_records(journal.path)
+    runs_that_day = set(r["run_id"] for r in records if r["kind"] == "RUN_START" and r["payload"].get("day") == day.isoformat())
+    for r in records:
+        if r["kind"] == "DECISION" and r["run_id"] in runs_that_day and r["payload"].get("status") == "ENTERED":
+            raise JournalError("DAY_ALREADY_TRADED", "%s already has a paper entry in this real-data journal; the "
+                               "day's limits cannot be reset by running it again" % day.isoformat())
+
+
 def run_day(provider, day, ctx, kill_dir, journal, answers=None):
     """Replay one trading day. `answers` maps a ticket fingerprint to the human's reply, word for word.
 
@@ -82,10 +102,11 @@ def run_day(provider, day, ctx, kill_dir, journal, answers=None):
     ticks = tick_times(ctx, day)
     if not ticks:
         raise ValueError("no trading session on %s" % day)
+    _refuse_second_traded_run(journal, day)
     mgr = risk_engine.RiskManager(cfg, ctx.cost_engine, ctx.specs, ctx.calendar, kill_dir, day)
     ex = paper_mod.PaperExecutor(cfg, ctx.cost_engine, ctx.specs, ctx.calendar, mgr, provider)
     pm = manager_mod.PositionManager(cfg, ctx.position_params, ex, mgr, provider, ctx.calendar, ctx.regime_params,
-                                     ctx.cost_engine, data_mode=ctx.data_mode)
+                                     ctx.cost_engine, data_mode=ctx.data_mode, data_label=_label(provider))
     journal.append("RUN_START", ticks[0], {
         "notice": "PAPER trading only, SIMULATED fills. Not financial advice.", "day": day.isoformat(),
         "data_mode": ctx.data_mode, "config_fingerprint": risk_engine.config_fingerprint(cfg),
@@ -135,7 +156,7 @@ def run_day(provider, day, ctx, kill_dir, journal, answers=None):
 
 def _decide(provider, ctx, mgr, pm, journal, t, answers, awaiting):
     d = strategy_engine.decide_at(provider, ctx.calendar, ctx.specs, ctx.cfg, ctx.strategy_params,
-                                  ctx.regime_params, t, ctx.data_mode)
+                                  ctx.regime_params, t, ctx.data_mode, _label(provider))
     record = {"decision_time": t.isoformat(), "inputs_hash": _inputs_hash(provider, d, ctx),
               "regime": {"label": d.regime.label, "evidence_score": None if d.regime.evidence_score is None
                          else str(d.regime.evidence_score), "bull_votes": d.regime.bull_votes,

@@ -51,10 +51,13 @@ python -m nifty_core.cli ticket --scenario bullish_trend --at 12:30
 python -m nifty_core.cli run-day --scenario bullish_trend --journal trader/journal/bullish.jsonl
 python -m nifty_core.cli report --journal trader/journal/bullish.jsonl
 python -m nifty_core.cli verify-journal --journal trader/journal/bullish.jsonl
+python -m nifty_core.cli check-data --scenario bullish_trend
 ```
 
 Scenarios are the fixture names in `tests/fixtures/scenarios` (or a path). See [docs/END_TO_END.md](docs/END_TO_END.md) for the approval flow and the journal.
 
+**Your own recorded data (P12).** You can export NIFTY candles and option-chain snapshots from any source, convert them with `tools/csv_to_scenario.py` and replay them through the same paper pipeline. The system never connects to a data vendor and never sends an order. See [docs/REAL_DATA.md](docs/REAL_DATA.md). The final safety audit is in [docs/SAFETY_AUDIT.md](docs/SAFETY_AUDIT.md).
+
 ## Documents
 
-[docs/REGIME_ENGINE.md](docs/REGIME_ENGINE.md), [docs/STRATEGY_ENGINE.md](docs/STRATEGY_ENGINE.md), [docs/RISK_ENGINE.md](docs/RISK_ENGINE.md), [docs/PAPER_EXECUTION.md](docs/PAPER_EXECUTION.md), [docs/POSITION_MANAGEMENT.md](docs/POSITION_MANAGEMENT.md), [docs/END_TO_END.md](docs/END_TO_END.md), [docs/COSTS.md](docs/COSTS.md), [docs/DATA_MODEL.md](docs/DATA_MODEL.md), [docs/SPREAD_MODEL.md](docs/SPREAD_MODEL.md).
+[docs/REGIME_ENGINE.md](docs/REGIME_ENGINE.md), [docs/STRATEGY_ENGINE.md](docs/STRATEGY_ENGINE.md), [docs/RISK_ENGINE.md](docs/RISK_ENGINE.md), [docs/PAPER_EXECUTION.md](docs/PAPER_EXECUTION.md), [docs/POSITION_MANAGEMENT.md](docs/POSITION_MANAGEMENT.md), [docs/END_TO_END.md](docs/END_TO_END.md), [docs/REAL_DATA.md](docs/REAL_DATA.md), [docs/SAFETY_AUDIT.md](docs/SAFETY_AUDIT.md), [docs/COSTS.md](docs/COSTS.md), [docs/DATA_MODEL.md](docs/DATA_MODEL.md), [docs/SPREAD_MODEL.md](docs/SPREAD_MODEL.md).

@@ -123,3 +123,11 @@ Total NSE exchange outflow on options is Rs 3,553 per crore before and after 202
 - The original plan's P9 (journal and reports) was displaced when P9 became position management; it was built inside P10 (append-only, hash-chained, fixture and real kept apart).
 - The minimum number of completed real paper trades before a report states performance (30) is an implementer assumption.
 - The end-to-end tests use a test-only configuration with twice the virtual capital so a fixture candidate fits the per-trade limit; the default settings were not changed.
+
+## P11 final safety audit
+
+690 tests OK under Asia/Kolkata, America/New_York, Pacific/Auckland, UTC; fixtures --check ok; upstream hash 9c2eee78... (85 files) unchanged. See docs/SAFETY_AUDIT.md.
+
+## P12 recorded real data (exported files)
+
+713 tests OK under four time zones; 15 new mutation patterns, all killed by the tests; fixtures --check ok; upstream hash unchanged. See docs/REAL_DATA.md.

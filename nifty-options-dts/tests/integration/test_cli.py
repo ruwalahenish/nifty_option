@@ -104,6 +104,29 @@ class CommandTests(Base):
         self.assertIn("KILL_SWITCH_ACTIVE", text)
         self.assertIn("no ticket", text)
 
+    def test_project_kill_file_wins_over_a_different_kill_dir_flag(self):
+        proj = os.path.join(self.dir, "project_trader")
+        os.makedirs(proj)
+        with open(os.path.join(proj, "KILL"), "w") as fh:
+            fh.write("test\n")
+        empty = os.path.join(self.dir, "elsewhere")             # a folder with no KILL file in it
+        os.makedirs(empty)
+        with mock.patch.object(cli, "PROJECT_TRADER_DIR", proj):
+            code, text = self.run_cli("ticket", "--scenario", "bullish_trend", "--at", "12:30", "--config", self.big,
+                                      "--kill-dir", empty)
+            self.assertIn("KILL_SWITCH_ACTIVE", text)
+            code, text = self.run_cli("run-day", "--scenario", "bullish_trend", "--config", self.big,
+                                      "--journal", self.journal(), "--kill-dir", empty)
+        records = J.read_records(self.journal())
+        self.assertEqual([r["payload"]["status"] for r in records if r["kind"] == "DECISION"].count("ENTERED"), 0)
+        self.assertTrue(any("KILL_SWITCH_ACTIVE" in json.dumps(r["payload"]) for r in records))
+
+    def test_without_a_project_kill_file_the_flag_is_used(self):
+        empty = os.path.join(self.dir, "elsewhere")
+        os.makedirs(empty)
+        with mock.patch.object(cli, "PROJECT_TRADER_DIR", os.path.join(self.dir, "no_such_folder")):
+            self.assertEqual(cli._kill_dir(type("A", (), {"kill_dir": empty})()), empty)
+
 
 class RunDayTests(Base):
     def fingerprint(self):

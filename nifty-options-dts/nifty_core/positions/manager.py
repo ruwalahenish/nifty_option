@@ -65,11 +65,11 @@ def _event(at, a, b, note):
 
 class PositionManager(object):
     def __init__(self, cfg, params, executor, risk_manager, provider, calendar, regime_params, cost_engine,
-                 data_mode="fixture", regime_fn=None):
+                 data_mode="fixture", regime_fn=None, data_label=None):
         paper_only.assert_paper_only(cfg)
         self._cfg, self._p, self._ex, self._risk = cfg, params, executor, risk_manager
         self._provider, self._calendar, self._rp, self._costs = provider, calendar, regime_params, cost_engine
-        self._data_mode = data_mode
+        self._data_mode, self._data_label = data_mode, data_label
         self._regime_fn = regime_fn
         self._positions = {}
         self._criticals = []
@@ -125,7 +125,8 @@ class PositionManager(object):
     def _regime(self, now):
         if self._regime_fn is not None:
             return self._regime_fn(now)
-        return regime_engine.classify_at(self._provider, self._calendar, now, self._rp, self._data_mode)
+        return regime_engine.classify_at(self._provider, self._calendar, now, self._rp, self._data_mode,
+                                          self._data_label)
 
     def _unrealized(self, pos, fills, now):
         epos = self._ex.position(pos.position_id)

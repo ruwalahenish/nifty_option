@@ -85,7 +85,8 @@ class JournalTests(TmpCase):
         j = J.Journal(self.path, "fixture", "r1")
         for i in range(3):
             j.append("DECISION", T0, {"n": i})
-        lines = open(self.path, encoding="utf-8").read().splitlines()
+        with open(self.path, encoding="utf-8") as fh:
+            lines = fh.read().splitlines()
         _write(self.path, "\n".join([lines[0], lines[2]]) + "\n")
         res = J.verify(self.path)
         self.assertFalse(res.ok)

@@ -14,7 +14,10 @@ The journal is append-only and hash-chained; every NO TRADE, BLOCKED and approve
 ```bash
 python -m nifty_core.cli report --journal trader/journal/bullish_trend.jsonl
 python -m nifty_core.cli verify-journal --journal trader/journal/bullish_trend.jsonl
+python -m nifty_core.cli check-data --scenario bullish_trend
 ```
+
+`check-data` validates a data file exactly as `run-day` would and describes it, without trading. Recorded real data (your own exported files, see docs/REAL_DATA.md) goes in a separate journal from fixtures, needs the config `data_mode` set to `real_readonly`, and makes no performance claim until 30 completed paper trades exist.
 
 Add `--json` for machine-readable output. Scenarios are fixture names (for example `bullish_trend`, `bearish_trend`, `sideways`, `high_volatility`, `illiquid_options`, `missing_invalid_data`) or paths to scenario files.
 
