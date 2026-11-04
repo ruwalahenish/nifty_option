@@ -1,0 +1,17 @@
+{
+  "account_capital_inr": 250000,
+  "risk_per_trade_pct": 1.0,
+  "max_daily_loss_pct": 2.0,
+  "max_lots": 1,
+  "max_trades_per_day": 2,
+  "risk_basis": "net_debit_plus_costs_plus_slippage",
+  "slippage_points_per_leg": 0.5,
+  "entry_window_start_ist": "10:15",
+  "entry_window_end_ist": "14:30",
+  "flat_by_ist": "15:15",
+  "allow_averaging": false,
+  "allow_overnight": false,
+  "data_mode": "real_readonly",
+  "data_stale_after_seconds": 60,
+  "paper": true
+}

@@ -1,0 +1,3 @@
+# Generated fixtures are compared byte-for-byte; keep LF endings on Windows.
+nifty-options-dts/tests/fixtures/** text eol=lf
+nifty-options-dts/config/** text eol=lf

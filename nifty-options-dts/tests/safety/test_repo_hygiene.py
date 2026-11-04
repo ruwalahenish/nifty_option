@@ -10,12 +10,12 @@ from nifty_core.guards import forbidden
 from tests._base import NoNetworkTestCase
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-LOCAL_PACKAGES = {"nifty_core", "tools", "tests"}
+LOCAL_PACKAGES = {"nifty_core", "nifty_live", "tools", "tests"}
 BAD_38 = ("import zoneinfo", "from zoneinfo", ".removeprefix(", ".removesuffix(")
 
 
 def py_files():
-    for sub in ("nifty_core", "tools", "tests"):
+    for sub in ("nifty_core", "nifty_live", "tools", "tests"):
         for path in forbidden.python_files(os.path.join(ROOT, sub)):
             yield path
 
