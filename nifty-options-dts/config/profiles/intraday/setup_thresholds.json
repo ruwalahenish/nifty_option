@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "kind": "STRATEGY_ASSUMPTIONS",
+  "description": "INTRADAY profile, setup part: OPENING-RANGE BREAKOUT ENTERED ON A RETEST. The range is the first 6 five-minute candles (09:15-09:45). A breakout is a 5-minute close 0.03% beyond the range. It must stay intact (no close back inside), the price may be at most 0.20% beyond the broken level (no chasing), it must have pulled back to within 0.05% of that level, and the last candle must resume in the trade direction on the right side of the day's average price. No new setup after 13:30. Still OUR choices, NOT validated on real market data. Set require_retest to false to enter on the breakout itself.",
+  "values": {
+    "opening_range_candles": 6,
+    "min_range_pct": 0.10,
+    "breakout_buffer_pct": 0.03,
+    "max_extension_pct": 0.20,
+    "require_retest": true,
+    "retest_zone_pct": 0.05,
+    "max_breakout_age_candles": 12,
+    "require_resumption_candle": true,
+    "require_day_average_side": true,
+    "latest_setup_ist": "13:30"
+  }
+}

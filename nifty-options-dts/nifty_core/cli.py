@@ -77,7 +77,7 @@ def _load(args):
     fixtures only with data_mode "fixture", recorded real data only with "real_readonly" (which refuses any contract
     value that is not verified). Neither can pass as the other."""
     cfg = config_mod.load_config(args.config)
-    ctx = pipeline.load_context(cfg, cfg.data_mode)
+    ctx = pipeline.load_context(cfg, cfg.data_mode, getattr(args, "profile", None))
     scenario = load_scenario_file(_scenario_path(args.scenario), ctx.specs, ctx.calendar, ctx.data_mode)
     synthetic = scenario.data_label == "FIXTURE_SYNTHETIC"
     if synthetic != (cfg.data_mode == "fixture"):
@@ -254,6 +254,8 @@ def build_parser():
         if scenario:
             sp.add_argument("--scenario", required=True, help="fixture name or path to a scenario JSON file")
             sp.add_argument("--config", default=None, help="config JSON (default: config/config.example.json)")
+            sp.add_argument("--profile", default=None, help="threshold profile from config/profiles/ (for example "
+                            "human); default is the strict reference files")
         if at:
             sp.add_argument("--at", required=True, help="decision time HH:MM IST on the scenario's day")
         return sp

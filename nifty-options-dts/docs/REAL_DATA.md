@@ -65,6 +65,8 @@ python -m nifty_core.cli run-day  --scenario data/nifty_2026-11-05.json --config
 `my_real_config.json` is a copy of `config/config.example.json` with `"data_mode": "real_readonly"`. Leave the risk limits at
 the defaults. Answer a ticket by running the same command again with `--answer FINGERPRINT="yes"` and `--run-label 2`.
 
+To watch the paper session live with unrealised P&L on a local page, see `LIVE_PAPER.md`.
+
 ## Data-quality points to know before you trust a day
 
 - **Export after the fact, honestly.** The system replays a day in order and only shows each moment what had been recorded by

@@ -3,6 +3,9 @@
     python tools/dashboard.py            # then open http://127.0.0.1:8765
     python tools/dashboard.py --port 9000 --journal-dir trader/journal
 
+    http://127.0.0.1:8765/live  shows the running live PAPER session (open position, unrealised P&L, waiting tickets).
+    It reads trader/live/state.json, which `python -m nifty_live.live_run` rewrites at every poll.
+
 * It only reads journal files. It answers GET requests only; every other method gets 405. It has no form, no button
   that acts, no way to approve a ticket and no route that writes anything. To approve a ticket you still re-run the
   command line with --answer FINGERPRINT="yes".
@@ -13,8 +16,11 @@
 PAPER trading only. Not financial advice.
 """
 import argparse
+import datetime
 import html
+import json
 import os
+import re
 import sys
 from decimal import Decimal
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -29,6 +35,10 @@ from nifty_core.journal import journal as journal_mod    # noqa: E402
 from nifty_core.journal import report as report_mod      # noqa: E402
 
 DEFAULT_DIR = os.path.join(PROJECT, "trader", "journal")
+DEFAULT_LIVE_STATE = os.path.join(PROJECT, "trader", "live", "state.json")
+MAX_STATE_BYTES = 8 * 1024 * 1024
+HEX16 = re.compile(r"^[0-9a-f]{16}$")
+STALE_AFTER_SECONDS = 120
 BIND_HOST = "127.0.0.1"
 NOTICE = "PAPER TRADING ONLY. Simulated fills. Not financial advice. This page cannot place or approve anything."
 
@@ -48,6 +58,11 @@ th{color:var(--mute);font-weight:600}td.n,th.n{text-align:right;font-variant-num
 .pos{color:var(--good)}.neg{color:var(--bad)}.mute{color:var(--mute)}
 pre{white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px;font-size:12px;margin:6px 0}
 .tbl{overflow-x:auto}svg{width:100%;height:auto;display:block}
+.chip{display:inline-block;padding:1px 8px;border-radius:10px;border:1px solid var(--line);font-size:12px;color:var(--mute)}
+.chip.live{border-color:var(--good);color:var(--good)}.chip.replay{border-color:var(--warn);color:var(--warn)}
+.alert{background:var(--card);border:1px solid var(--bad);border-left:4px solid var(--bad);padding:8px 12px;border-radius:6px;margin:10px 0}
+.big{font-size:26px}
+.stat b span{font-size:inherit;color:inherit}.stat b .pos{color:var(--good)}.stat b .neg{color:var(--bad)}
 """
 
 
@@ -118,7 +133,7 @@ def render_index(folder):
         rows.append(["<a href='/journal?name=%s'>%s</a>" % (esc(n), esc(n)), esc(rep.get("data_source")),
                      esc(rep.get("runs", "")), esc(rep.get("completed_trades", "")),
                      esc(status)])
-    body = "<h1>Paper-trading journals</h1>"
+    body = "<p><a href='/live'>Live paper session &rarr;</a></p><h1>Paper-trading journals</h1>"
     if rows:
         body += "<div class=card>%s</div>" % _table(["journal", "data", "runs", "completed trades", "chain"], rows, (2, 3))
     else:
@@ -199,11 +214,195 @@ def render_journal(folder, name):
     return page(name, body, refresh=15)
 
 
-def route(folder, raw_path):
+def _dec(x):
+    try:
+        return None if x is None else Decimal(str(x))
+    except Exception:
+        return None
+
+
+def _money(x):
+    d = _dec(x)
+    return '<span class=mute>-</span>' if d is None else money(d)
+
+
+def _hhmmss(iso):
+    return esc(str(iso)[11:19]) if iso else "-"
+
+
+def load_live_state(path):
+    """The live runner's state file as a dict, or None when it is missing, too large or not valid JSON."""
+    try:
+        if os.path.getsize(path) > MAX_STATE_BYTES:
+            return None
+        with open(path, "r", encoding="utf-8") as fh:
+            doc = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    return doc if isinstance(doc, dict) and doc.get("kind") == "LIVE_PAPER_STATE" else None
+
+
+def gauge_svg(net, stop, target):
+    """Where the unrealised net P&L sits between the stop level (left) and the profit-target level (right)."""
+    net, stop, target = _dec(net), _dec(stop), _dec(target)
+    if net is None or stop is None or target is None or target <= stop:
+        return ""
+    span = target - stop
+    frac = min(max((net - stop) / span, Decimal(0)), Decimal(1))
+    zero = min(max((Decimal(0) - stop) / span, Decimal(0)), Decimal(1))
+    w, pad = 640, 20
+
+    def x(f):
+        return pad + (w - 2 * pad) * float(f)
+    return ("<svg viewBox='0 0 %d 56' role=img aria-label='Unrealised P&amp;L between the stop level and the target level'>"
+            "<rect x=%d y=20 width=%d height=10 rx=5 fill='var(--line)'/>"
+            "<line x1=%.1f x2=%.1f y1=14 y2=36 stroke='var(--mute)' stroke-dasharray='3 3'/>"
+            "<circle cx=%.1f cy=25 r=8 fill='var(--accent)'/>"
+            "<text x=%d y=52 fill='var(--bad)' font-size=11>stop %s</text>"
+            "<text x=%d y=52 fill='var(--good)' font-size=11 text-anchor=end>target %s</text>"
+            "<text x=%.1f y=12 fill='var(--mute)' font-size=11 text-anchor=middle>0</text></svg>" % (
+                w, pad, w - 2 * pad, x(zero), x(zero), x(frac), pad, esc("{:,.0f}".format(stop)), w - pad,
+                esc("{:,.0f}".format(target)), x(zero)))
+
+
+def _legs_table(legs):
+    rows = [[esc(leg.get("contract")), esc(leg.get("side")), esc(leg.get("units")), esc(leg.get("entry")),
+             esc(leg.get("bid") or "-"), esc(leg.get("ask") or "-"), esc(leg.get("mark") or "-"),
+             _money(leg.get("leg_gross_inr"))] for leg in legs]
+    return _table(["contract", "side", "units", "paper entry", "bid", "ask", "exit mark", "leg P&L INR"], rows,
+                  (2, 3, 4, 5, 6, 7))
+
+
+def _open_position_card(pos):
+    u = pos.get("unrealized")
+    body = "<b>%s</b> &middot; %s &middot; %s lot(s) &middot; entered %s &middot; defined risk INR %s" % (
+        esc(pos.get("strategy")), esc(pos.get("state")), esc(pos.get("lots")), _hhmmss(pos.get("entry_time")),
+        esc(pos.get("defined_risk_inr")))
+    body += _legs_table(pos.get("legs", []))
+    if u:
+        body += ("<div class=grid style='margin-top:10px'>"
+                 "<div class='card stat'><b>%s</b><span>unrealised gross</span></div>"
+                 "<div class='card stat'><b>%s</b><span>entry costs paid</span></div>"
+                 "<div class='card stat'><b>%s</b><span>exit costs (estimate)</span></div>"
+                 "<div class='card stat'><b class=big>%s</b><span>UNREALISED net P&amp;L (simulated)</span></div></div>" % (
+                     _money(u.get("gross_pnl_inr")), esc(u.get("actual_entry_costs_inr")),
+                     esc(u.get("estimated_exit_costs_inr")), _money(u.get("net_pnl_inr"))))
+        body += gauge_svg(u.get("net_pnl_inr"), pos.get("stop_at_net_inr"), pos.get("target_at_net_inr"))
+    else:
+        body += "<p class=neg>Mark unavailable right now: %s</p>" % esc("; ".join(pos.get("mark_problems") or ["no quote"]))
+    if pos.get("exit_reason"):
+        waiting = " - waiting: " + ", ".join(pos["pending_reasons"]) if pos.get("pending_reasons") else ""
+        body += "<p class=mute>Exit decided: %s (attempt %s)%s</p>" % (
+            esc(pos.get("exit_reason")), esc(pos.get("exit_attempts")), esc(waiting))
+    return "<div class=card>%s</div>" % body
+
+
+def render_live(state_path, journal_dir=None, now=None):
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    st = load_live_state(state_path)
+    if st is None:
+        body = ("<h1>Live paper session</h1><div class=card>No live session is writing <code>%s</code> yet. Start one "
+                "during market hours:<pre>python -m nifty_live.live_run --config my_real_config.json --dashboard</pre>"
+                "or preview it any time on a simulated clock:<pre>python -m nifty_live.live_run --replay "
+                "data/recordings/YYYY-MM-DD --config my_real_config.json --dashboard</pre></div>" % esc(state_path))
+        return page("Live paper session", body, refresh=5)
+    mode = st.get("mode", "LIVE")
+    chip = ("<span class='chip live'>LIVE quotes</span>" if mode == "LIVE"
+            else "<span class='chip replay'>REPLAY - simulated clock</span>")
+    body = "<p><a href='/'>&larr; journals</a></p><h1>Live paper session %s</h1>" % chip
+    body += "<p class=mute>%s &middot; %s &middot; status %s &middot; market time %s</p>" % (
+        esc(st.get("label")), esc(st.get("day")), esc(st.get("status")), _hhmmss(st.get("updated_at")))
+    try:
+        age = (now - datetime.datetime.fromisoformat(st["written_at"])).total_seconds()
+    except (KeyError, ValueError, TypeError):
+        age = None
+    if mode == "LIVE" and st.get("status") != "FINISHED" and (age is None or age > STALE_AFTER_SECONDS):
+        body += ("<div class=alert><b>NOT UPDATING.</b> The live runner has not written for %s. It may have stopped; "
+                 "everything below is the last known state and is not current.</div>" % (
+                     "a while" if age is None else "%d s" % age))
+    if st.get("problem"):
+        body += "<div class=alert>%s</div>" % esc(st["problem"])
+    if st.get("kill_switch"):
+        body += "<div class=alert><b>KILL switch is on.</b> No new paper entry will be made.</div>"
+
+    market, totals = st.get("market") or {}, st.get("totals")
+    tiles = [("NIFTY spot", esc(market.get("spot") or "-")),
+             ("quote age", esc("%s s" % market["data_age_seconds"]) if market else "-")]
+    if totals:
+        day_total = totals.get("day_total_inr")
+        tiles += [("Day P&L (realised + unrealised)", _money(day_total) if day_total is not None else "mark unavailable"),
+                  ("Unrealised (simulated)", _money(totals.get("unrealised_net_inr"))),
+                  ("Realised (closed trades)", _money(totals.get("realised_net_inr"))),
+                  ("Trades today", esc("%s / %s" % (totals.get("trades_today"),
+                                                    (st.get("limits") or {}).get("max_trades_per_day"))))]
+    body += "<div class=grid>%s</div>" % "".join(
+        "<div class='card stat'><b>%s</b><span>%s</span></div>" % (v, esc(k)) for k, v in tiles)
+    body += "<p class=mute>%s</p>" % esc(st.get("note"))
+
+    for t in st.get("pending_tickets") or []:
+        fp = str(t.get("fingerprint", ""))
+        cmd = ("python -m nifty_live.live_run answer %s yes" % fp) if HEX16.match(fp) else "(fingerprint missing)"
+        body += ("<h2>Ticket waiting for your reply</h2><div class=card><pre>%s</pre>"
+                 "<p>Valid until <b>%s</b> (%s s after it was made); after that it is released and nothing is entered. "
+                 "To approve exactly this paper order, run in a terminal:</p><pre>%s</pre>"
+                 "<p class=mute>This page cannot approve anything.</p></div>" % (
+                     esc(t.get("text")), _hhmmss(t.get("expires_at")), esc(st.get("approval_window_seconds")), esc(cmd)))
+
+    body += "<h2>Open paper position</h2>"
+    opens = st.get("open_positions") or []
+    body += "".join(_open_position_card(p) for p in opens) if opens else "<div class=card><span class=mute>none</span></div>"
+
+    d = st.get("last_decision")
+    if d:
+        why = "<br><span class=mute>%s</span>" % esc(" | ".join(d.get("reasons") or [])) if d.get("reasons") else ""
+        body += ("<h2>Latest decision</h2><div class=card><b>%s</b> at %s &middot; regime %s &middot; strategy %s%s</div>" % (
+            esc(d.get("status")), _hhmmss(d.get("decision_time")), esc(d.get("regime")), esc(d.get("strategy_outcome")), why))
+    sl = st.get("slots") or {}
+    if sl.get("next"):
+        body += "<p class=mute>Next decision slot: %s (a slot every 5 minutes from %s to %s).</p>" % (
+            _hhmmss(sl.get("next")), _hhmmss(sl.get("first")), _hhmmss(sl.get("last")))
+
+    pts = []
+    for row in st.get("curve") or []:
+        v = _dec(row[1]) if isinstance(row, list) and len(row) == 2 else None
+        if v is not None:
+            pts.append((row[0], v))
+    if len(pts) >= 2 and any(v != 0 for _, v in pts):
+        pts = pts[::max(1, len(pts) // 600)]
+        body += "<h2>Today's P&amp;L (realised + unrealised)</h2><div class=card>%s</div>" % equity_svg(pts)
+
+    closed = st.get("closed_trades") or []
+    body += "<h2>Closed paper trades today</h2><div class=card>%s</div>" % _table(
+        ["entered", "closed", "contracts", "exit reason", "gross INR", "net INR"],
+        [[_hhmmss(c.get("entry_time")), _hhmmss(c.get("closed_at")),
+          esc(" / ".join("%s %s" % (leg.get("side"), leg.get("contract")) for leg in c.get("legs", []))),
+          esc(c.get("exit_reason")), _money(c.get("gross_pnl_inr")), _money(c.get("net_pnl_inr"))] for c in closed],
+        (4, 5))
+
+    events = (st.get("events") or [])[-15:][::-1]
+    if events:
+        body += "<h2>Recent events</h2><div class=card>%s</div>" % _table(
+            ["time", "event"], [[_hhmmss(e.get("at")), esc(e.get("text"))] for e in events])
+    name = st.get("journal_name")
+    if journal_dir and name and name in list_journals(journal_dir):
+        body += "<p><a href='/journal?name=%s'>Full journal of this session</a></p>" % esc(name)
+    lim = st.get("limits") or {}
+    window = lim.get("entry_window") or ["-", "-"]
+    body += ("<p class=mute>Limits: risk per trade INR %s &middot; max daily loss INR %s &middot; flat by %s &middot; "
+             "entries %s-%s IST. Fills are simulated with adverse slippage and costs. Realised statistics on the "
+             "journal pages stay hidden until 30 completed real paper trades; the figures here are a live view only.</p>" % (
+                 esc(lim.get("risk_per_trade_inr")), esc(lim.get("max_daily_loss_inr")), esc(lim.get("flat_by_ist")),
+                 esc(window[0]), esc(window[1])))
+    return page("Live paper session", body, refresh=3)
+
+
+def route(folder, raw_path, live_state=None):
     """Return (status, html text). Pure function, so it is tested without opening a socket."""
     url = urlparse(raw_path)
     if url.path == "/":
         return 200, render_index(folder)
+    if url.path == "/live":
+        return 200, render_live(live_state or DEFAULT_LIVE_STATE, folder)
     if url.path == "/journal":
         name = (parse_qs(url.query).get("name") or [""])[0]
         out = render_journal(folder, name)
@@ -212,13 +411,13 @@ def route(folder, raw_path):
     return 404, page("Not found", "<h1>Not found</h1><p><a href='/'>Journals</a></p>")
 
 
-def make_handler(folder):
+def make_handler(folder, live_state=None):
     class Handler(BaseHTTPRequestHandler):
         server_version = "PaperDashboard"
 
         def do_GET(self):
             try:
-                status, text = route(folder, self.path)
+                status, text = route(folder, self.path, live_state)
             except Exception as e:                      # never crash the page on one bad journal
                 status, text = 500, page("Error", "<h1>Could not build this page</h1><pre>%s</pre>" % esc(e))
             data = text.encode("utf-8")
@@ -245,8 +444,9 @@ def main(argv=None):
     p = argparse.ArgumentParser(description="Read-only local dashboard for paper-trading journals.")
     p.add_argument("--port", type=int, default=8765)
     p.add_argument("--journal-dir", default=DEFAULT_DIR)
+    p.add_argument("--live-state", default=DEFAULT_LIVE_STATE, help="state file written by nifty_live.live_run")
     args = p.parse_args(argv)
-    server = HTTPServer((BIND_HOST, args.port), make_handler(os.path.abspath(args.journal_dir)))
+    server = HTTPServer((BIND_HOST, args.port), make_handler(os.path.abspath(args.journal_dir), args.live_state))
     print("%s\nServing journals from %s at http://%s:%d  (Ctrl+C to stop)" % (
         NOTICE, args.journal_dir, BIND_HOST, args.port))
     try:

@@ -19,7 +19,7 @@ from ..market.ist import to_ist
 GENESIS = "0" * 64
 DATA_SOURCES = ("fixture", "real")
 KINDS = ("RUN_START", "DECISION", "TICKET", "APPROVAL", "EXECUTION", "EXIT", "POSITION", "CRITICAL", "DAY_LOCKED",
-         "RUN_END")
+         "MARK", "RUN_END")
 VerifyResult = namedtuple("VerifyResult", "ok records problems")
 
 

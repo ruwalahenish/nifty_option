@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "kind": "STRATEGY_ASSUMPTIONS",
+  "description": "HUMAN profile: how a discretionary intraday trader reads the tape, so it calls a trend sooner and tolerates a normal noisy day. Compared with config/regime_thresholds.json: 9 candles (45 min) instead of 12 before classifying, a 0.15% move from the open counts as direction (was 0.30%), the day-range zones are 40/60 (were 35/65), the last 3 of 5 candles (was 4 of 6) and 9 candles in three blocks (was 12) decide momentum and structure, and the volatility brakes are looser (one 0.8% bar or 0.15% stdev, was 0.5% and 0.10%). Still OUR choices, chosen by reasoning, NOT validated on real market data. Still needs 3 of 4 evidence items, none against.",
+  "values": {
+    "interval_minutes": 5,
+    "min_bars": 9,
+    "max_data_lag_minutes": 10,
+    "net_move_pct": 0.15,
+    "range_position_high": 0.60,
+    "range_position_low": 0.40,
+    "recent_window": 5,
+    "recent_dominance": 3,
+    "structure_window": 9,
+    "votes_required": 3,
+    "sideways_max_range_pct": 0.45,
+    "abnormal_bar_range_pct": 0.80,
+    "high_vol_stdev_pct": 0.15
+  }
+}

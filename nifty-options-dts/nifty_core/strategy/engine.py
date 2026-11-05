@@ -29,6 +29,9 @@ DECISION ORDER
        debit), then narrower width, then nearer the money, then lower long strike. The ranking uses data quality
        only: no forecast, no profit estimate, no risk figure.
     If no candidate survives the answer is NO_TRADE. A valid spread is never chosen merely because it exists.
+    The best-ranked survivor is `candidate`; the others, in rank order, are `alternates`. The strategy engine never looks
+    at the risk limit: the pipeline offers them to the risk gate in order and takes the first one that fits, so a spread
+    that is too big for the per-trade limit does not hide a smaller one that fits.
 """
 import datetime
 from collections import namedtuple
@@ -39,9 +42,10 @@ from ..data import validation as data_validation
 from ..data.models import LABEL_FIXTURE, OptionContract
 from ..errors import ConfigError, ContractError, DataNotAvailable, DataValidationError, SpreadError
 from ..instruments import builders
+from ..intraday import setup as intraday_setup
 from ..instruments.spread import KIND_BEAR_PUT, KIND_BULL_CALL
 from ..market.calendar_nse import check_config_fits_session
-from ..market.ist import to_ist
+from ..market.ist import ist_datetime, to_ist
 from ..regime import engine as regime_engine
 from .params import params_as_json
 
@@ -56,7 +60,8 @@ TradeCandidate = namedtuple("TradeCandidate", (
     "short_contract spread entry_price_long entry_price_short width_points net_debit_points net_debit_inr lots "
     "lot_size liquidity selection assumptions note"))
 StrategyDecision = namedtuple("StrategyDecision", (
-    "outcome decision_time regime reasons candidate considered thresholds_fingerprint note"))
+    "outcome decision_time regime reasons candidate considered thresholds_fingerprint note alternates"),
+    defaults=((),))
 
 
 def _s(value):
@@ -284,40 +289,68 @@ def decide(regime, chain, events, as_of, cfg, params, regime_params, specs, cale
             len(considered), summary))], params, considered)
 
     survivors.sort(key=rank_key)
-    friction, width, offset, long_k, spread, lq, sq = survivors[0]
     regime_info = {"label": regime.label, "as_of": regime.as_of.isoformat(), "evidence_score": _s(regime.evidence_score),
                    "bull_votes": regime.bull_votes, "bear_votes": regime.bear_votes,
                    "thresholds_fingerprint": regime.thresholds_fingerprint}
-    candidate = TradeCandidate(
-        strategy_type=spread.kind, regime_at_entry=regime_info, decision_time=as_of,
-        chain_snapshot_time=chain.snapshot_time, data_label=chain.data_label, data_mode=data_mode, expiry=expiry,
-        long_contract=spread.long_leg.contract, short_contract=spread.short_leg.contract, spread=spread,
-        entry_price_long=spread.long_leg.entry_price, entry_price_short=spread.short_leg.entry_price,
-        width_points=spread.width_points, net_debit_points=spread.net_debit_points,
-        net_debit_inr=spread.net_debit_points * spread.units, lots=spread.lots, lot_size=spread.lot_size,
-        liquidity={"long": _leg_evidence(lq, spread.long_leg.entry_price, "BUY"),
-                   "short": _leg_evidence(sq, spread.short_leg.entry_price, "SELL"),
-                   "chain_age_seconds": int((as_of - chain.snapshot_time).total_seconds())},
-        selection={"rule": "lowest entry friction among candidates that passed every filter, then narrower width, "
-                           "then nearer the money, then lower long strike",
-                   "entry_friction_pct": str(friction.quantize(Decimal("0.01"))),
-                   "debit_to_width": str((spread.net_debit_points / spread.width_points).quantize(Decimal("0.0001"))),
-                   "offset_steps": offset, "candidates_tested": len(considered), "candidates_passed": len(survivors),
-                   "atm_strike": str(atm), "chain_spot": str(chain.spot),
-                   "evaluation_lots_note": "lots is the unit used to evaluate the candidate, not a position size"},
-        assumptions={"strategy_thresholds": params_as_json(params),
-                     "entry_window_ist": [cfg.entry_window_start_ist, cfg.entry_window_end_ist],
-                     "flat_by_ist": cfg.flat_by_ist, "quote_stale_after_seconds": cfg.data_stale_after_seconds,
-                     "regime_thresholds_fingerprint": regime_params.fingerprint,
-                     "entry_prices": "ask of the long leg, bid of the short leg"},
-        note=NOTE)
-    return StrategyDecision(CANDIDATE, as_of, regime, (), candidate, tuple(considered), params.fingerprint, NOTE)
+
+    def build(survivor):
+        friction, width, offset, long_k, spread, lq, sq = survivor
+        return TradeCandidate(
+            strategy_type=spread.kind, regime_at_entry=regime_info, decision_time=as_of,
+            chain_snapshot_time=chain.snapshot_time, data_label=chain.data_label, data_mode=data_mode, expiry=expiry,
+            long_contract=spread.long_leg.contract, short_contract=spread.short_leg.contract, spread=spread,
+            entry_price_long=spread.long_leg.entry_price, entry_price_short=spread.short_leg.entry_price,
+            width_points=spread.width_points, net_debit_points=spread.net_debit_points,
+            net_debit_inr=spread.net_debit_points * spread.units, lots=spread.lots, lot_size=spread.lot_size,
+            liquidity={"long": _leg_evidence(lq, spread.long_leg.entry_price, "BUY"),
+                       "short": _leg_evidence(sq, spread.short_leg.entry_price, "SELL"),
+                       "chain_age_seconds": int((as_of - chain.snapshot_time).total_seconds())},
+            selection={"rule": "lowest entry friction among candidates that passed every filter, then narrower width, "
+                               "then nearer the money, then lower long strike",
+                       "entry_friction_pct": str(friction.quantize(Decimal("0.01"))),
+                       "debit_to_width": str((spread.net_debit_points / spread.width_points).quantize(Decimal("0.0001"))),
+                       "offset_steps": offset, "candidates_tested": len(considered), "candidates_passed": len(survivors),
+                       "atm_strike": str(atm), "chain_spot": str(chain.spot),
+                       "evaluation_lots_note": "lots is the unit used to evaluate the candidate, not a position size"},
+            assumptions={"strategy_thresholds": params_as_json(params),
+                         "entry_window_ist": [cfg.entry_window_start_ist, cfg.entry_window_end_ist],
+                         "flat_by_ist": cfg.flat_by_ist, "quote_stale_after_seconds": cfg.data_stale_after_seconds,
+                         "regime_thresholds_fingerprint": regime_params.fingerprint,
+                         "entry_prices": "ask of the long leg, bid of the short leg"},
+            note=NOTE)
+
+    built = [build(x) for x in survivors]
+    return StrategyDecision(CANDIDATE, as_of, regime, (), built[0], tuple(considered), params.fingerprint, NOTE,
+                            tuple(built[1:]))
 
 
-def decide_at(provider, calendar, specs, cfg, params, regime_params, as_of, data_mode="fixture", data_label=None):
-    """Fetch everything through the read-only provider, standing at `as_of`, and decide."""
+def apply_intraday_setup(regime, provider, calendar, regime_params, setup_params, as_of):
+    """Let the opening-range setup name the direction. The regime engine's verdicts that mean "do not trade" still come
+    first and are never overridden: NO_DATA (data gates), HIGH_VOLATILITY (the brake) and SIDEWAYS (a narrow, going-
+    nowhere day, where range breakouts are mostly noise). Any other label becomes BULLISH, BEARISH or NO_TRADE according
+    to the setup, with the setup's reasons (which say what it is waiting for)."""
+    if regime.label in (regime_engine.NO_DATA, regime_engine.HIGH_VOLATILITY, regime_engine.SIDEWAYS):
+        return regime
+    session = calendar.session(as_of.date())
+    try:
+        bars = provider.get_underlying_bars(regime_params.interval_minutes, ist_datetime(session.date, session.open),
+                                            ist_datetime(session.date, session.close), as_of=as_of)
+    except DataNotAvailable:
+        bars = ()
+    result = intraday_setup.evaluate(bars, as_of, setup_params)
+    label = {intraday_setup.BULL: regime_engine.BULLISH, intraday_setup.BEAR: regime_engine.BEARISH}.get(
+        result.direction, regime_engine.NO_TRADE)
+    return regime._replace(label=label, reasons=tuple(regime_engine.Reason(r.code, r.text) for r in result.reasons))
+
+
+def decide_at(provider, calendar, specs, cfg, params, regime_params, as_of, data_mode="fixture", data_label=None,
+              setup_params=None):
+    """Fetch everything through the read-only provider, standing at `as_of`, and decide. With `setup_params` the
+    direction comes from the intraday opening-range setup instead of the regime engine's own votes."""
     as_of = to_ist(as_of)
     regime = regime_engine.classify_at(provider, calendar, as_of, regime_params, data_mode, data_label)
+    if setup_params is not None:
+        regime = apply_intraday_setup(regime, provider, calendar, regime_params, setup_params, as_of)
     try:
         chain = provider.get_option_chain(as_of=as_of)
     except DataNotAvailable:
