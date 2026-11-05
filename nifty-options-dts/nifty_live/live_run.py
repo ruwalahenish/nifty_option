@@ -17,6 +17,8 @@ Then open http://127.0.0.1:8765/live
 PAPER trading only. Not financial advice.
 """
 import argparse
+import collections
+import csv
 import datetime as dt
 import json
 import os
@@ -33,7 +35,7 @@ if PROJECT not in sys.path:
 from nifty_core import config as config_mod                                    # noqa: E402
 from nifty_core import pipeline                                                # noqa: E402
 from nifty_core.data.fixture_provider import load_scenario_file, parse_scenario   # noqa: E402
-from nifty_core.errors import NiftyError                                       # noqa: E402
+from nifty_core.errors import JournalError, NiftyError                                       # noqa: E402
 from nifty_core.journal import journal as journal_mod                          # noqa: E402
 from nifty_core.live_session import LiveSession                                # noqa: E402
 from nifty_live import recorder                                                # noqa: E402
@@ -48,7 +50,12 @@ JOURNAL_DIR = os.path.join(TRADER_DIR, "journal")
 FIXTURE_DIR = os.path.join(PROJECT, "tests", "fixtures", "scenarios")
 DEFAULT_CONFIG = os.path.join(PROJECT, "config", "config.example.json")
 KEEP_CHAINS = 3                      # the pipeline reads only the newest snapshot; a few are kept for safety
+LIVE_MIN_POLL_SECONDS = 5            # fastest live poll; the quote-staleness limit is 60 s, so 5-10 s is comfortable
 HEX16 = re.compile(r"^[0-9a-f]{16}$")
+ENTRY_MODE_TEXT = {
+    "auto": ("ENTRY MODE: AUTOMATIC. A setup that passes every rule and fits the risk limits is entered as a PAPER trade "
+             "without asking you, and exits are automatic too. Create the file trader/KILL to stop new entries."),
+    "manual": "ENTRY MODE: MANUAL. Every entry waits for your reply: python -m nifty_live.live_run answer <fingerprint> yes"}
 
 
 # ---------------------------------------------------------------- shared files
@@ -126,12 +133,40 @@ def cmd_answer(argv):
 
 
 # ---------------------------------------------------------------- data
-def build_live_scenario(out_dir, day, ctx, keep=KEEP_CHAINS):
-    """Validated scenario from the recorder's files, newest `keep` snapshots only (validating the whole day every
-    poll would be wasted work; the recorded files still hold everything for a later replay)."""
-    doc = csv_to_scenario.build(day.isoformat(), "nifty_live_%s" % day, os.path.join(out_dir, "candles.csv"),
-                                os.path.join(out_dir, "chain.csv"))
-    doc["chains"] = doc["chains"][-keep:]
+def _text(value):
+    value = (value or "").strip()
+    return value if value != "" else None
+
+
+def _whole(value):
+    value = _text(value)
+    return None if value is None else int(value)
+
+
+def chain_doc(stamp, spot, rows):
+    """One snapshot as the scenario format wants it (the same text-to-field rules as tools/csv_to_scenario.py)."""
+    return {"snapshot_time": stamp, "spot": _text(spot), "quotes": [{
+        "expiry": _text(r["expiry"]), "strike": _whole(str(r["strike"])), "type": _text(r["type"]),
+        "bid": _text(r["bid"]), "ask": _text(r["ask"]), "ltp": _text(r["ltp"]), "bid_qty": _whole(r["bid_qty"]),
+        "ask_qty": _whole(r["ask_qty"]), "volume": _whole(r["volume"]), "open_interest": _whole(r["open_interest"]),
+        "timestamp": stamp} for r in rows]}
+
+
+def read_candles(out_dir):
+    path = os.path.join(out_dir, "candles.csv")
+    if not os.path.exists(path):
+        return []
+    with open(path, "r", encoding="utf-8", newline="") as fh:
+        return [{"start": _text(r["start"]), "open": _text(r["open"]), "high": _text(r["high"]), "low": _text(r["low"]),
+                 "close": _text(r["close"]), "volume": _whole(r.get("volume"))} for r in csv.DictReader(fh)]
+
+
+def build_live_scenario(out_dir, day, ctx, recent):
+    """Validated scenario from today's candles file and the newest snapshots kept IN MEMORY by the loop (`recent`).
+    Nothing grows with the day, so polling every few seconds stays cheap; chain.csv still holds everything for a replay."""
+    doc = {"schema_version": 1, "scenario": "nifty_live_%s" % day, "description": "live session, newest snapshots",
+           "underlying": "NIFTY", "date": day.isoformat(), "interval_minutes": 5, "data_label": "RECORDED_REAL",
+           "candles": read_candles(out_dir), "chains": list(recent)[-KEEP_CHAINS:], "events": [], "metadata": {}}
     return parse_scenario(doc, ctx.specs, ctx.calendar, ctx.data_mode)
 
 
@@ -160,9 +195,9 @@ def _scenario_path(arg):
 
 # ---------------------------------------------------------------- dashboard thread
 def start_dashboard(port, journal_dir, state_path):
-    from http.server import HTTPServer
+    from http.server import ThreadingHTTPServer
     from tools import dashboard
-    server = HTTPServer((dashboard.BIND_HOST, port), dashboard.make_handler(os.path.abspath(journal_dir), state_path))
+    server = ThreadingHTTPServer((dashboard.BIND_HOST, port), dashboard.make_handler(os.path.abspath(journal_dir), state_path))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     print("dashboard: http://%s:%d/live   (read-only; this computer only)" % (dashboard.BIND_HOST, port))
     return server
@@ -172,17 +207,19 @@ def start_dashboard(port, journal_dir, state_path):
 class Runner(object):
     """Glue between a clock, a source of data and the session. Used by both the live loop and the replay."""
 
-    def __init__(self, ctx, day, journal, mode, state_path=STATE_PATH, inbox=None, out=print):
-        self.session = LiveSession(ctx, TRADER_DIR, journal, day)
+    def __init__(self, ctx, day, journal, mode, state_path=STATE_PATH, inbox=None, out=print, auto_entry=False):
+        self.session = LiveSession(ctx, TRADER_DIR, journal, day, auto_entry=auto_entry)
         self.mode, self.state_path, self.inbox, self.out = mode, state_path, inbox or AnswerInbox(), out
         self._announced = set()
         self.problem = None
+        self.poll_seconds = None
 
     def publish(self, now):
         view = self.session.snapshot(now)
         view["mode"] = self.mode
         view["written_at"] = recorder.now_ist().isoformat()
         view["problem"] = self.problem
+        view["poll_seconds"] = self.poll_seconds
         return write_state(view, self.state_path)
 
     def announce_tickets(self, now):
@@ -245,18 +282,22 @@ def run_live(a):
     out_dir = a.out_dir or os.path.join(PROJECT, "data", "recordings", day.isoformat())
     journal = journal_mod.Journal(os.path.join(a.journal_dir, "live_%s.jsonl" % day.isoformat()), "real",
                                   "live-%s-%s" % (day.isoformat(), t.strftime("%H%M%S")))
-    runner = Runner(ctx, day, journal, "LIVE", a.state_file)
+    runner = Runner(ctx, day, journal, "LIVE", a.state_file, auto_entry=a.entry_mode == "auto")
     print("PAPER trading only: real Upstox quotes (read-only), SIMULATED fills, expiry %s. Recording to %s.\n"
           "Journal: %s. Ctrl+C stops the session." % (expiry, out_dir, journal.path))
+    print(ENTRY_MODE_TEXT[a.entry_mode])
     server = start_dashboard(a.port, a.journal_dir, a.state_file) if a.dashboard else None
-    interval = max(a.interval, recorder.MIN_POLL_SECONDS)
+    interval = max(a.interval, LIVE_MIN_POLL_SECONDS)
+    runner.poll_seconds = interval
+    recent = collections.deque(maxlen=KEEP_CHAINS)
     failures = 0
     last_candles_slot = None
     try:
         while True:
             t = recorder.now_ist()
             try:
-                recorder.record_snapshot(token, out_dir, t, expiry, a.window)
+                recorder.record_snapshot(token, out_dir, t, expiry, a.window,
+                                         sink=lambda stamp, spot, rows: recent.append(chain_doc(stamp, spot, rows)))
                 failures, runner.problem = 0, None
             except ur.UpstoxReadError as e:
                 failures += 1
@@ -275,7 +316,14 @@ def run_live(a):
                     print("%s %s" % (t.strftime("%H:%M:%S"), runner.problem))
                 ensure_candles_file(out_dir)
             try:
-                runner.step(t, build_live_scenario(out_dir, day, ctx))
+                runner.step(t, build_live_scenario(out_dir, day, ctx, recent))
+            except JournalError as e:
+                if runner.session.runner is None:                   # the session could not even open: retrying is pointless
+                    print("%s the journal refused this run: %s" % (t.strftime("%H:%M:%S"), e))
+                    break
+                runner.problem = "journal problem, nothing decided this poll: %s" % e
+                print("%s %s" % (t.strftime("%H:%M:%S"), runner.problem))
+                runner.publish(t)
             except NiftyError as e:
                 runner.problem = "data problem, nothing decided this poll: %s" % e
                 print("%s %s" % (t.strftime("%H:%M:%S"), runner.problem))
@@ -332,7 +380,8 @@ def run_replay(a):
     stamp = dt.datetime.now().strftime("%H%M%S")
     journal = journal_mod.Journal(os.path.join(a.journal_dir, "liveview_%s_%s.jsonl" % (scenario.name, stamp)),
                                   source, "liveview-%s-%s" % (scenario.name, stamp))
-    runner = Runner(ctx, day, journal, "REPLAY", a.state_file)
+    runner = Runner(ctx, day, journal, "REPLAY", a.state_file, auto_entry=a.entry_mode == "auto")
+    print(ENTRY_MODE_TEXT[a.entry_mode])
     print("REPLAY of %s on a simulated clock (%s). Journal: %s" % (scenario.name, scenario.data_label, journal.path))
     server = start_dashboard(a.port, a.journal_dir, a.state_file) if a.dashboard else None
     times = replay_times(scenario, ctx, day)
@@ -367,7 +416,10 @@ def build_parser():
     p.add_argument("--profile", default="intraday", help="entry-rule profile in config/profiles/: intraday (default: "
                    "opening-range breakout entered on a retest), human (votes on trend, looser), or default (the strict "
                    "reference thresholds)")
-    p.add_argument("--interval", type=int, default=30, help="seconds between polls (minimum %d)" % recorder.MIN_POLL_SECONDS)
+    p.add_argument("--entry-mode", choices=("auto", "manual"), default="auto",
+                   help="auto (default): paper entries and exits are automatic; manual: each entry waits for your yes")
+    p.add_argument("--interval", type=int, default=10, help="seconds between live polls (default 10, minimum %d)" %
+                   LIVE_MIN_POLL_SECONDS)
     p.add_argument("--expiry", default="auto", help="auto, a keyword such as next_week, or YYYY-MM-DD")
     p.add_argument("--window", type=int, default=1000, help="keep strikes within this many points of spot")
     p.add_argument("--out-dir", default=None, help="recording folder (default data/recordings/<date>)")

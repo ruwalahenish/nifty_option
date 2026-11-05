@@ -133,3 +133,39 @@ def evaluate(candles, as_of, p):
         if shown is None:
             shown = fails
     return SetupResult(None, tuple(shown), metrics)
+
+
+def failed_after_entry(candles, as_of, p, direction):
+    """Reason text when the setup behind an OPEN position has failed, else None: the last completed candle closed back
+    inside the opening range (at or below the range high for a bull position, at or above the range low for a bear one)."""
+    as_of = to_ist(as_of)
+    cs = [c for c in candles if c.end <= as_of]
+    n = p.opening_range_candles
+    if len(cs) <= n:
+        return None
+    opening = cs[:n]
+    or_high, or_low = max(c.high for c in opening), min(c.low for c in opening)
+    last = cs[-1]
+    if direction == BULL and last.close <= or_high:
+        return "the %s candle closed %s, back inside the opening range (high %s): the breakout has failed" % (
+            _hm(last), _p(last.close), _p(or_high))
+    if direction == BEAR and last.close >= or_low:
+        return "the %s candle closed %s, back inside the opening range (low %s): the breakout has failed" % (
+            _hm(last), _p(last.close), _p(or_low))
+    return None
+
+
+def levels(candles, as_of, p):
+    """The price levels the setup is working with, for display: opening-range high and low, the breakout trigger levels
+    (range edge plus/minus the buffer) and the day's average price. None until the opening range is complete."""
+    as_of = to_ist(as_of)
+    cs = [c for c in candles if c.end <= as_of]
+    n = p.opening_range_candles
+    if len(cs) < n:
+        return None
+    opening = cs[:n]
+    or_high, or_low = max(c.high for c in opening), min(c.low for c in opening)
+    buf = Decimal(p.breakout_buffer_pct) / 100
+    day_avg = sum(((c.high + c.low + c.close) / 3 for c in cs), Decimal(0)) / len(cs)
+    return {"opening_range_high": or_high, "opening_range_low": or_low, "breakout_up": or_high * (1 + buf),
+            "breakout_down": or_low * (1 - buf), "day_average": day_avg}

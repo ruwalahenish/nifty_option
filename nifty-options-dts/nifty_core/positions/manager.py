@@ -19,6 +19,8 @@ EXIT REASONS (priority order when several apply; all that apply are recorded)
     DATA_SAFETY         exit quotes or the regime data were unusable on data_safety_failed_checks consecutive checks
     STOP_LOSS           unrealized net P&L <= -(stop_loss_pct_of_defined_risk % of the approved defined risk)
     REGIME_INVALIDATION the regime turned to the opposite direction (or HIGH_VOLATILITY), when enabled
+    SETUP_INVALIDATED   (only when a setup check is supplied) the entry setup failed, for example price closed back
+                        inside the opening range it had broken out of
     PROFIT_TARGET       unrealized net P&L >= profit_target_pct_of_defined_risk % of the approved defined risk
     Once a close is decided it is sticky: the manager keeps trying even if the trigger later fades.
 
@@ -44,7 +46,9 @@ TERMINAL = (CLOSED, UNCLOSED_CRITICAL)
 HOLD, CLOSE = "HOLD", "CLOSE"
 FORCED_FLAT_BY, MANUAL_PAPER_EXIT, DATA_SAFETY, STOP_LOSS, REGIME_INVALIDATION, PROFIT_TARGET = (
     "FORCED_FLAT_BY", "MANUAL_PAPER_EXIT", "DATA_SAFETY", "STOP_LOSS", "REGIME_INVALIDATION", "PROFIT_TARGET")
-PRIORITY = (FORCED_FLAT_BY, MANUAL_PAPER_EXIT, DATA_SAFETY, STOP_LOSS, REGIME_INVALIDATION, PROFIT_TARGET)
+SETUP_INVALIDATED = "SETUP_INVALIDATED"
+PRIORITY = (FORCED_FLAT_BY, MANUAL_PAPER_EXIT, DATA_SAFETY, STOP_LOSS, REGIME_INVALIDATION, SETUP_INVALIDATED,
+            PROFIT_TARGET)
 
 ManagedPosition = namedtuple("ManagedPosition", (
     "position_id approval_id candidate_id strategy_type entry_regime lots state entry_time exit_reason exit_triggers "
@@ -65,8 +69,9 @@ def _event(at, a, b, note):
 
 class PositionManager(object):
     def __init__(self, cfg, params, executor, risk_manager, provider, calendar, regime_params, cost_engine,
-                 data_mode="fixture", regime_fn=None, data_label=None):
+                 data_mode="fixture", regime_fn=None, data_label=None, setup_exit_fn=None):
         paper_only.assert_paper_only(cfg)
+        self._setup_exit_fn = setup_exit_fn          # (now, entry regime label) -> reason text or None
         self._cfg, self._p, self._ex, self._risk = cfg, params, executor, risk_manager
         self._provider, self._calendar, self._rp, self._costs = provider, calendar, regime_params, cost_engine
         self._data_mode, self._data_label = data_mode, data_label
@@ -183,6 +188,8 @@ class PositionManager(object):
             triggers.append(REGIME_INVALIDATION)
         if self._p.invalidate_on_high_volatility and label == regime_engine.HIGH_VOLATILITY:
             triggers.append(REGIME_INVALIDATION)
+        if self._setup_exit_fn is not None and self._setup_exit_fn(now, entry_label):
+            triggers.append(SETUP_INVALIDATED)
         if pos.state == EXIT_PENDING and pos.exit_reason and pos.exit_reason not in triggers:
             triggers.append(pos.exit_reason)                       # a decided close stays decided
         ordered = tuple(t for t in PRIORITY if t in triggers)

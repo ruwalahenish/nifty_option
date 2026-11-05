@@ -253,9 +253,16 @@ class LivePageTests(LiveBase):
                                   problem=None), path)
         return dashboard.render_live(path, self.dir, now)
 
-    def assert_read_only(self, text):
-        for control in ("<form", "<button", "<input", "<script"):
+    def assert_read_only(self, text, scripts=1):
+        """No control of any kind. The only script allowed is the one that re-fetches the page fragment with a GET."""
+        for control in ("<form", "<button", "<input", "<textarea", "<select"):
             self.assertNotIn(control, text)
+        self.assertEqual(text.count("<script"), scripts)
+        if scripts:
+            script = text[text.index("<script"):text.index("</script>")]
+            self.assertIn("fetch('/live?fragment=1'", script)
+            for word in ("POST", "PUT", "DELETE", "method", "body:", "XMLHttpRequest", "WebSocket", "eval("):
+                self.assertNotIn(word, script)
 
     def test_page_shows_the_waiting_ticket_with_its_command_and_cannot_act(self):
         now, fp = self.run_until_ticket()
@@ -297,7 +304,9 @@ class LivePageTests(LiveBase):
                     pending_tickets=[{"fingerprint": bad, "text": bad, "decided_at": "x", "expires_at": "x"}],
                     events=[{"at": "x", "text": bad}])
         text = self.page(view)
-        self.assertNotIn("<script", text)
+        self.assertNotIn("<script>alert(1)", text)
+        self.assertEqual(text.count("<script"), 1)                      # only our own fetch script
+        self.assertIn("&lt;script&gt;alert(1)", text)
         self.assertIn("(fingerprint missing)", text)
 
     def test_a_broken_or_foreign_state_file_is_ignored(self):
@@ -311,6 +320,149 @@ class LivePageTests(LiveBase):
         handler = dashboard.make_handler(self.dir, os.path.join(self.dir, "state.json"))
         for verb in ("do_POST", "do_PUT", "do_DELETE", "do_PATCH"):
             self.assertIs(getattr(handler, verb), handler._refuse)
+
+
+class LiveDataTests(LiveBase):
+    """The page moves with the data: spot series, levels, option chain, fragment updates."""
+    assert_read_only = LivePageTests.assert_read_only
+
+    def test_the_session_keeps_every_new_snapshot_spot_and_a_chain_window_around_the_money(self):
+        for now in self.times[:6]:
+            self.session.step(now, self.scenario)
+        view = self.session.snapshot(self.times[5])
+        self.assertGreaterEqual(len(view["spot_series"]), 1)
+        stamps = [p[0] for p in view["spot_series"]]
+        self.assertEqual(stamps, sorted(set(stamps)))                    # one point per snapshot, in order
+        rows = view["chain_view"]["rows"]
+        self.assertEqual(len(rows), 11)                                   # 5 strikes each side plus the money
+        self.assertEqual(sum(1 for r in rows if r["atm"]), 1)
+        spot = Dec(view["market"]["spot"])
+        atm = [r for r in rows if r["atm"]][0]
+        self.assertEqual(Dec(atm["strike"]), min((Dec(r["strike"]) for r in rows), key=lambda k: abs(k - spot)))
+        self.assertTrue(view["candle_closes"])
+
+    def test_open_legs_are_marked_in_the_chain_window(self):
+        now, fp = self.run_until_ticket()
+        self.session.answer(fp, "yes", now + 5 * SEC)
+        view = self.session.snapshot(now + 5 * SEC)
+        marks = [(r["strike"], k, v) for r in view["chain_view"]["rows"] for k, v in r["held"].items() if v]
+        self.assertEqual(sorted(m[2] for m in marks), ["BUY", "SELL"])
+        text = dashboard.live_fragment(self.write_state(view, now), self.dir)
+        self.assertIn("class=tag>BUY", text.replace("'", ""))
+        self.assertIn("Option chain around the money", text)
+
+    def write_state(self, view, now):
+        path = os.path.join(self.dir, "fragment_state.json")
+        live_run.write_state(dict(view, mode="LIVE", written_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                                  problem=None, poll_seconds=10), path)
+        return path
+
+    def test_levels_exist_only_for_a_profile_with_a_setup(self):
+        for now in self.times[:6]:
+            self.session.step(now, self.scenario)
+        self.assertIsNone(self.session.snapshot(self.times[5])["levels"])         # the strict profile has no setup
+        ctx = P.load_context(big_cfg()._replace(entry_window_start_ist="09:45"), "fixture", "intraday")
+        session = LiveSession(ctx, os.path.join(self.dir, "trader"), J.Journal(os.path.join(self.dir, "i.jsonl"), "fixture", "i"),
+                              self.scenario.day)
+        for now in live_run.replay_times(self.scenario, ctx, self.scenario.day)[:20]:
+            session.step(now, self.scenario)
+            last = now
+        lv = session.snapshot(last)["levels"]
+        self.assertIsNotNone(lv)
+        self.assertLess(Dec(lv["opening_range_low"]), Dec(lv["opening_range_high"]))
+        self.assertGreater(Dec(lv["breakout_up"]), Dec(lv["opening_range_high"]))
+        self.assertLess(Dec(lv["breakout_down"]), Dec(lv["opening_range_low"]))
+
+    def test_the_fragment_has_no_script_and_the_full_page_wraps_it_with_the_one_fetch_script(self):
+        for now in self.times[:8]:
+            self.session.step(now, self.scenario)
+        path = self.write_state(self.session.snapshot(self.times[7]), self.times[7])
+        fragment = dashboard.live_fragment(path, self.dir)
+        self.assert_read_only(fragment, scripts=0)
+        self.assertIn("page updates every second", fragment)
+        self.assertIn("polling every 10 s", fragment)
+        full = dashboard.render_live(path, self.dir)
+        self.assert_read_only(full)
+        self.assertIn("<div id=live>", full)
+        self.assertIn('<noscript><meta http-equiv="refresh"', full)         # still updates, slowly, with scripts off
+        status, via_route = dashboard.route(self.dir, "/live?fragment=1", path)
+        self.assertEqual((status, via_route), (200, fragment))
+        self.assertIn("NIFTY today", fragment)
+
+    def test_the_price_chart_draws_the_levels_and_needs_two_points(self):
+        self.assertEqual(dashboard.spot_svg([["2026-11-05T09:30:00+05:30", "24400"]], [], None), "")
+        svg = dashboard.spot_svg([["2026-11-05T09:30:00+05:30", "24400"], ["2026-11-05T09:30:10+05:30", "24410"]],
+                                 [["2026-11-05T09:25:00+05:30", "24390"]],
+                                 {"opening_range_high": "24420", "opening_range_low": "24300", "breakout_up": "24427",
+                                  "breakout_down": "24293", "day_average": "24380"})
+        for word in ("range high", "range low", "long trigger", "short trigger", "day avg", "<polyline", "<circle"):
+            self.assertIn(word, svg)
+        self.assertNotIn("<script", svg)
+
+    def test_every_chart_is_well_formed_for_html(self):
+        """An unquoted attribute value right before '/>' swallows the slash, so the element is never closed and everything
+        after it is nested inside it and not drawn. No chart may contain that."""
+        import re
+        series = [["2026-11-05T09:30:%02d+05:30" % i, str(24400 + i)] for i in range(0, 30, 10)]
+        charts = [dashboard.spot_svg(series, [["2026-11-05T09:25:00+05:30", "24390"]],
+                                     {"opening_range_high": "24420", "opening_range_low": "24300", "breakout_up": "24427",
+                                      "breakout_down": "24293", "day_average": "24380"}),
+                  dashboard.gauge_svg("100", "-500", "800"),
+                  dashboard.equity_svg([("a", Dec(0)), ("b", Dec(5)), ("c", Dec(-3))])]
+        for svg in charts:
+            self.assertTrue(svg.startswith("<svg"))
+            self.assertIsNone(re.search(r"=[^'\" >]+/>", svg), svg[:200])
+            self.assertEqual(svg.count("<svg"), svg.count("</svg>"))
+
+    def test_a_dead_runner_still_shows_the_red_dot_and_a_replay_never_does(self):
+        self.session.step(self.times[0], self.scenario)
+        path = os.path.join(self.dir, "old.json")
+        old = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=5)).isoformat()
+        live_run.write_state(dict(self.session.snapshot(self.times[0]), mode="LIVE", written_at=old, problem=None,
+                                  poll_seconds=10), path)
+        self.assertIn("dot off", dashboard.live_fragment(path, self.dir))
+        live_run.write_state(dict(self.session.snapshot(self.times[0]), mode="REPLAY", written_at=old, problem=None), path)
+        self.assertNotIn("dot off", dashboard.live_fragment(path, self.dir))
+
+
+class LivePollingTests(NoNetworkTestCase):
+    def test_chain_documents_built_in_memory_match_the_csv_conversion_exactly(self):
+        import csv as csvmod
+        from nifty_live import recorder
+        from tests.unit.test_live_recorder import CHAIN, FakeTransport, TOKEN
+        from tools import csv_to_scenario
+        t = datetime.datetime(2026, 11, 5, 10, 15, 7, tzinfo=datetime.timezone(datetime.timedelta(hours=5, minutes=30)))
+        d = tempfile.mkdtemp()
+        self.addCleanup(lambda: __import__("shutil").rmtree(d, ignore_errors=True))
+        got = []
+        recorder.record_snapshot(TOKEN, d, t, "current_week", 1000, FakeTransport(),
+                                 sink=lambda stamp, spot, rows: got.append(live_run.chain_doc(stamp, spot, rows)))
+        with open(os.path.join(d, "candles.csv"), "w", encoding="utf-8") as fh:
+            fh.write(",".join(recorder.CANDLE_FIELDS) + "\n")
+        via_csv = csv_to_scenario.build("2026-11-05", "x", os.path.join(d, "candles.csv"), os.path.join(d, "chain.csv"))
+        self.assertEqual(got, via_csv["chains"])
+        self.assertEqual(live_run.read_candles(d), via_csv["candles"])
+
+    def test_the_live_scenario_is_built_from_memory_and_keeps_only_the_newest_snapshots(self):
+        scenario = sc.scenario("bullish_trend")
+        ctx = P.load_context(big_cfg())
+        d = tempfile.mkdtemp()
+        self.addCleanup(lambda: __import__("shutil").rmtree(d, ignore_errors=True))
+        with open(os.path.join(d, "candles.csv"), "w", encoding="utf-8") as fh:
+            fh.write("start,open,high,low,close,volume\n")
+        recent = [live_run.chain_doc(c.snapshot_time.isoformat(), str(c.spot), [
+            {"expiry": q.contract.expiry.isoformat(), "strike": int(q.contract.strike), "type": q.contract.option_type,
+             "bid": str(q.bid or ""), "ask": str(q.ask or ""), "ltp": str(q.ltp or ""), "bid_qty": str(q.bid_qty or ""),
+             "ask_qty": str(q.ask_qty or ""), "volume": str(q.volume or ""), "open_interest": str(q.open_interest or "")}
+            for q in c.quotes[:20]]) for c in scenario.chains]
+        built = live_run.build_live_scenario(d, scenario.day, ctx._replace(data_mode="fixture"), recent)
+        self.assertLessEqual(len(built.chains), live_run.KEEP_CHAINS)
+        self.assertEqual(built.chains[-1].snapshot_time, scenario.chains[-1].snapshot_time)
+
+    def test_live_polling_defaults_to_ten_seconds_and_never_below_five(self):
+        a = live_run.build_parser().parse_args([])
+        self.assertEqual(a.interval, 10)
+        self.assertEqual(live_run.LIVE_MIN_POLL_SECONDS, 5)
 
 
 if __name__ == "__main__":

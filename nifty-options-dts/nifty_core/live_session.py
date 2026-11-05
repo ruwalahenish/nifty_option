@@ -24,13 +24,16 @@ from .data.fixture_provider import FixtureProvider
 from .data.provider import MarketDataProvider
 from .errors import DataNotAvailable, NiftyError
 from .guards import paper_only
-from .market.ist import to_ist
+from .intraday import setup as intraday_setup
+from .market.ist import ist_datetime, to_ist
 from .positions import manager as manager_mod
 
 UNREALISED_NOTE = ("UNREALISED: a simulated mark to liquidation on live quotes, after entry costs and estimated exit "
                    "costs. It moves with every quote and is not a result and not evidence of profitability.")
 MAX_CURVE_POINTS = 4000
 MAX_EVENTS = 60
+MAX_SPOT_POINTS = 6000
+CHAIN_STRIKES_EACH_SIDE = 5
 
 
 class _RollingProvider(MarketDataProvider):
@@ -67,8 +70,9 @@ def _s(x):
 
 
 class LiveSession(object):
-    def __init__(self, ctx, kill_dir, journal, day, run_label=None):
+    def __init__(self, ctx, kill_dir, journal, day, run_label=None, auto_entry=False):
         paper_only.assert_paper_only(ctx.cfg)
+        self.auto_entry = bool(auto_entry)           # operator's choice: enter risk-approved PAPER tickets automatically
         self.ctx, self.kill_dir, self.journal, self.day = ctx, kill_dir, journal, day
         self.run_label = run_label
         self._inner = None
@@ -83,6 +87,8 @@ class LiveSession(object):
         self._curve = []
         self._events = deque(maxlen=MAX_EVENTS)
         self._exits_seen = 0
+        self._spots = []
+        self._open_notes = []
         self._last_now = None
 
     @property
@@ -96,9 +102,12 @@ class LiveSession(object):
     # ---- stepping
     def _open(self, now):
         self.runner = pipeline.DayRunner(self._provider, self.day, self.ctx, self.kill_dir, self.journal,
-                                         hold_unanswered=True)
+                                         hold_unanswered=not self.auto_entry, auto_entry=self.auto_entry,
+                                         restore=True)
         self.runner.start(now)
-        self.note(now, "paper session started (real quotes, simulated fills)")
+        self._open_notes = list(self.runner.carry_notes)
+        self.note(now, "paper session started (real quotes, simulated fills, %s)" % (
+            "AUTOMATIC paper entry and exit" if self.auto_entry else "entries need your yes"))
 
     def step(self, now, scenario):
         """Advance to `now` using everything recorded so far. Returns a list of short event strings."""
@@ -109,6 +118,7 @@ class LiveSession(object):
         out = []
         if self.runner is None:
             self._open(now)
+            out.extend(self._open_notes)
         self.runner.expire_pending(now)
         due = [s for s in self._slots if s <= now]
         if due and due[-1] != self._last_slot:
@@ -124,8 +134,69 @@ class LiveSession(object):
         for text in out:
             self.note(now, text)
         self._last_now = now
+        self._record_spot(now)
         self._append_curve(now)
         return out
+
+    def _record_spot(self, now):
+        """Remember each new snapshot's spot, so the dashboard can draw the day's price as it moves."""
+        try:
+            chain = self._inner.get_option_chain(as_of=now)
+        except DataNotAvailable:
+            return
+        stamp = chain.snapshot_time.isoformat()
+        if self._spots and self._spots[-1][0] == stamp:
+            return
+        self._spots.append([stamp, str(chain.spot)])
+        if len(self._spots) > MAX_SPOT_POINTS:
+            del self._spots[: len(self._spots) - MAX_SPOT_POINTS]
+
+    def _bars(self, now):
+        if self._inner is None:
+            return ()
+        session = self.ctx.calendar.session(now.date())
+        if session is None:
+            return ()
+        try:
+            return self._inner.get_underlying_bars(self.ctx.regime_params.interval_minutes,
+                                                   ist_datetime(session.date, session.open),
+                                                   ist_datetime(session.date, session.close), as_of=now)
+        except DataNotAvailable:
+            return ()
+
+    def _levels(self, bars, now):
+        if self.ctx.setup_params is None:
+            return None
+        lv = intraday_setup.levels(bars, now, self.ctx.setup_params)
+        return None if lv is None else {k: str(paise(v)) for k, v in lv.items()}
+
+    def _chain_view(self, chain):
+        """Strikes around the money for the expiry that matters (the held position's, else the nearest), with the legs
+        of any open paper position marked."""
+        held, held_expiry = {}, None
+        if self.runner is not None:
+            for p in self.runner.pm.active():
+                for f in self.runner.ex.position(p.position_id).entry_fills:
+                    held[(f.contract.strike, f.contract.option_type)] = f.side
+                    held_expiry = f.contract.expiry
+        expiries = chain.expiries()
+        expiry = held_expiry or (expiries[0] if expiries else None)
+        if expiry is None:
+            return None
+        by_strike = {}
+        for q in chain.for_expiry(expiry):
+            by_strike.setdefault(q.contract.strike, {})[q.contract.option_type] = q
+        strikes = sorted(by_strike)
+        atm = min(strikes, key=lambda k: abs(k - chain.spot))
+        i = strikes.index(atm)
+
+        def side(q):
+            return None if q is None else {"bid": _s(q.bid), "ask": _s(q.ask), "ltp": _s(q.ltp),
+                                           "oi": q.open_interest, "volume": q.volume}
+        rows = [{"strike": str(k), "atm": k == atm, "ce": side(by_strike[k].get("CE")), "pe": side(by_strike[k].get("PE")),
+                 "held": {"CE": held.get((k, "CE")), "PE": held.get((k, "PE"))}}
+                for k in strikes[max(0, i - CHAIN_STRIKES_EACH_SIDE): i + CHAIN_STRIKES_EACH_SIDE + 1]]
+        return {"expiry": expiry.isoformat(), "rows": rows}
 
     def answer(self, fingerprint, reply, now):
         """A reply to one waiting ticket, applied at `now`. Returns the resulting status."""
@@ -218,6 +289,12 @@ class LiveSession(object):
                 "target_at_net_inr": str(paise(defined * params.profit_target_pct_of_defined_risk / 100)),
                 "exit_reason": p.exit_reason, "exit_attempts": p.exit_attempts,
                 "pending_reasons": [c for c, _ in p.last_pending_reasons], "critical": p.critical})
+        for t in self.runner._carried:                      # trades of earlier runs today, valued as they were closed
+            realised += Decimal(t["net"])
+            closed_views.insert(0, {
+                "position_id": t["position_id"], "strategy": "RESTORED", "entry_time": t["opened_at"],
+                "closed_at": t["closed_at"], "exit_reason": t["exit_reason"], "gross_pnl_inr": t["gross"],
+                "net_pnl_inr": t["net"], "administrative": not t["closed"] or t["administrative"], "legs": t["legs"]})
         return realised, (unrealised if marked_all else None), open_views, closed_views
 
     def _append_curve(self, now):
@@ -236,6 +313,7 @@ class LiveSession(object):
         view = {
             "kind": "LIVE_PAPER_STATE", "paper": True, "updated_at": now.isoformat(), "day": self.day.isoformat(),
             "data_mode": self.ctx.data_mode, "label": "PAPER - live quotes, SIMULATED fills", "note": UNREALISED_NOTE,
+            "entry_mode": "AUTO" if self.auto_entry else "MANUAL",
             "journal_name": journal_mod_name(self.journal.path), "run_id": self.journal.run_id,
             "status": "NOT_STARTED", "kill_switch": paper_only.kill_switch_active(self.kill_dir),
             "approval_window_seconds": cfg.data_stale_after_seconds,
@@ -245,7 +323,8 @@ class LiveSession(object):
                        "max_daily_loss_inr": _s(cfg.max_daily_loss_inr), "flat_by_ist": cfg.flat_by_ist,
                        "entry_window": [cfg.entry_window_start_ist, cfg.entry_window_end_ist]},
             "market": None, "last_decision": None, "pending_tickets": [], "open_positions": [], "closed_trades": [],
-            "totals": None, "curve": self._curve, "events": list(self._events)}
+            "totals": None, "curve": self._curve, "events": list(self._events), "spot_series": [], "candle_closes": [],
+            "levels": None, "chain_view": None}
         chain = None
         if self._inner is not None:
             try:
@@ -253,6 +332,11 @@ class LiveSession(object):
             except DataNotAvailable:
                 chain = None
         if chain is not None:
+            bars = self._bars(now)
+            view["spot_series"] = self._spots
+            view["candle_closes"] = [[c.end.isoformat(), str(c.close)] for c in bars]
+            view["levels"] = self._levels(bars, now)
+            view["chain_view"] = self._chain_view(chain)
             view["market"] = {"spot": _s(chain.spot), "chain_time": chain.snapshot_time.isoformat(),
                               "data_age_seconds": int((now - chain.snapshot_time).total_seconds()),
                               "quotes_in_snapshot": len(chain.quotes), "data_label": self._inner.scenario.data_label}
@@ -266,7 +350,7 @@ class LiveSession(object):
             "realised_net_inr": str(paise(realised)),
             "unrealised_net_inr": None if unrealised is None else str(paise(unrealised)),
             "day_total_inr": None if unrealised is None else str(paise(realised + unrealised)),
-            "trades_today": self.runner.entries, "completed_trades": len(closed_views)}
+            "trades_today": self.runner.entries + len(self.runner._carried), "completed_trades": len(closed_views)}
         d = self.runner.last_decision
         if d is not None:
             why = (d.get("risk", {}).get("reasons") if d.get("status") == "BLOCKED" else

@@ -357,6 +357,14 @@ class RiskManager(object):
     def snapshot(self):
         return self._ledger.snapshot(self._cfg.max_daily_loss_inr)
 
+    def carry_over(self, positions):
+        """Add trades that already happened earlier today in a previous run of the program (ledger Position tuples,
+        already closed), so the day's trade count, realised loss and used-candidate checks continue instead of
+        starting again from zero."""
+        self._ledger = ledger_mod.DayLedger(self._ledger.day, self._ledger.account_capital_inr,
+                                            self._ledger.positions + tuple(positions))
+        return self.snapshot()
+
     def request_entry(self, candidate, now):
         d = evaluate(candidate, self._ledger, now, self._cfg, self._costs, self._specs, self._calendar, self._kill)
         if d.outcome == APPROVED:

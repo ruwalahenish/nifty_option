@@ -56,8 +56,10 @@ def resolve_expiry(token, expiry, transport=None):
     raise ur.UpstoxReadError("no option chain with quotes was found for %r" % expiry)
 
 
-def record_snapshot(token, out_dir, t, expiry, window, transport=None):
-    """Append one chain snapshot (strikes within +-window points of spot) to chain.csv. Returns the row count."""
+def record_snapshot(token, out_dir, t, expiry, window, transport=None, sink=None):
+    """Append one chain snapshot (strikes within +-window points of spot) to chain.csv. Returns the row count.
+    `sink(stamp, spot, rows)`, when given, also receives the rows that were written (the live session keeps them in
+    memory instead of re-reading a file that grows all day)."""
     spot, rows = ur.get_option_chain(token, expiry, transport=transport)
     lo, hi = float(spot) - window, float(spot) + window
     keep = [r for r in rows if lo <= r["strike"] <= hi]
@@ -73,6 +75,8 @@ def record_snapshot(token, out_dir, t, expiry, window, transport=None):
             w.writeheader()
         for r in keep:
             w.writerow(dict(r, snapshot_time=stamp, spot=spot, timestamp=stamp))
+    if sink is not None:
+        sink(stamp, spot, keep)
     return len(keep)
 
 

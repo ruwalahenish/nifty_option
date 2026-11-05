@@ -29,7 +29,8 @@ For an up-breakout (a down-breakout is the mirror image):
 On top of that, unchanged: the regime engine's data gates, its volatility brake and its SIDEWAYS verdict still win (no trade
 on a missing-data, too-volatile or going-nowhere day), HIGH-impact event days are blocked, option quotes must be fresh and
 liquid, the spread must fit the INR 2,500 per-trade limit (the system picks the best-ranked one that fits), at most 2 trades
-a day, and **nothing is entered without your "yes"**.
+a day, and by default a qualifying setup is entered **automatically** as a paper trade (`--entry-mode auto`; use `--entry-mode manual`
+to require your "yes" for each entry).
 
 ## The day, step by step
 
@@ -50,7 +51,12 @@ http://127.0.0.1:8765/live. (It refuses to start before 09:15 or on a non-tradin
 4. `price is back inside the opening range (the ... breakout failed)` : cancelled, waiting for a fresh breakout.
 5. A **ticket** appears : breakout + retest + resumption all happened and a spread fits the limit.
 
-**When a ticket appears (you have 60 seconds)**
+**Automatic mode (default).** When the setup qualifies and a spread fits the risk limit, the system enters the paper trade by
+itself. The Live page shows the position and its unrealised P&L within a poll, and the journal records the entry as
+`auto_paper_entry`. To stop new entries at any time create an empty file `trader/KILL` (open positions are still managed and
+closed). Your job is to watch, not to approve.
+
+**Manual mode (`--entry-mode manual`): when a ticket appears (you have 60 seconds)**
 Read the ticket, then answer only if you agree. Quick checklist:
 - Does the direction match what you see on your own chart (not just the system)?
 - Is the defined risk on the ticket within what you are happy to lose (it is capped at INR 2,500)?
@@ -59,8 +65,8 @@ Read the ticket, then answer only if you agree. Quick checklist:
 To approve: `python -m nifty_live.live_run answer <fingerprint> yes`
 
 **After entry** the system manages the paper position by itself at each 5-minute slot, and the Live page shows the unrealised
-P&L every poll. Exits: profit target (+60% of the defined risk), stop (-50%), the regime flipping against you, three bad-data
-checks, or flat by 15:15. Do not add to it, average down or move the stop: the system has no such command by design.
+P&L every poll. Exits are automatic: profit target (+60% of the defined risk), stop (-50%), **a failed breakout (a 5-minute
+candle closes back inside the opening range)**, the regime flipping against you, three bad-data checks, or flat by 15:15. Do not add to it, average down or move the stop: the system has no such command by design.
 
 **After 13:30** no new setup is taken. Open positions are still managed. **15:15** forced flat. **15:30** the session ends
 and the journal is closed.
@@ -99,8 +105,8 @@ Compare against the other rule sets with `--profile human` (trend votes) or `--p
 
 ## What this does not do
 
-- It does not exit when a breakout fails after entry (the stop, target and regime flip do that). A "back inside the range"
-  exit would be a sensible next addition.
+- The failed-breakout exit uses a plain close back inside the range, so a one-candle whipsaw can stop you out of a trade that
+  would have recovered.
 - Index candles have no volume, so there is no volume confirmation and no true VWAP.
 - Exits are checked every 5 minutes, and the simulated fills are optimistic about size.
 - Nothing here has been shown to make money. Judge it by net P&L per trade after costs over many days.

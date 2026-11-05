@@ -343,6 +343,23 @@ def apply_intraday_setup(regime, provider, calendar, regime_params, setup_params
     return regime._replace(label=label, reasons=tuple(regime_engine.Reason(r.code, r.text) for r in result.reasons))
 
 
+def setup_has_failed(provider, calendar, regime_params, setup_params, as_of, entry_regime_label):
+    """Reason text if the intraday setup behind a held position has failed at `as_of`, else None. No data means no
+    verdict here (the position manager's own data-safety rule deals with missing data)."""
+    as_of = to_ist(as_of)
+    session = calendar.session(as_of.date())
+    direction = {regime_engine.BULLISH: intraday_setup.BULL, regime_engine.BEARISH: intraday_setup.BEAR}.get(
+        entry_regime_label)
+    if session is None or direction is None:
+        return None
+    try:
+        bars = provider.get_underlying_bars(regime_params.interval_minutes, ist_datetime(session.date, session.open),
+                                            ist_datetime(session.date, session.close), as_of=as_of)
+    except DataNotAvailable:
+        return None
+    return intraday_setup.failed_after_entry(bars, as_of, setup_params, direction)
+
+
 def decide_at(provider, calendar, specs, cfg, params, regime_params, as_of, data_mode="fixture", data_label=None,
               setup_params=None):
     """Fetch everything through the read-only provider, standing at `as_of`, and decide. With `setup_params` the

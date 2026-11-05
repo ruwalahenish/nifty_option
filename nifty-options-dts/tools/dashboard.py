@@ -23,7 +23,7 @@ import os
 import re
 import sys
 from decimal import Decimal
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -62,6 +62,10 @@ pre{white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);borde
 .chip.live{border-color:var(--good);color:var(--good)}.chip.replay{border-color:var(--warn);color:var(--warn)}
 .alert{background:var(--card);border:1px solid var(--bad);border-left:4px solid var(--bad);padding:8px 12px;border-radius:6px;margin:10px 0}
 .big{font-size:26px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--good);margin-right:6px;animation:pulse 1.2s infinite}
+.dot.off{background:var(--bad);animation:none}@keyframes pulse{50%{opacity:.25}}
+tr.atm td{font-weight:700;background:var(--bg)}tr.held td{border-bottom:2px solid var(--accent)}
+.tag{font-size:10px;border:1px solid var(--accent);color:var(--accent);border-radius:8px;padding:0 5px;margin-left:4px}
 .stat b span{font-size:inherit;color:inherit}.stat b .pos{color:var(--good)}.stat b .neg{color:var(--bad)}
 """
 
@@ -70,8 +74,8 @@ def esc(x):
     return html.escape("" if x is None else str(x))
 
 
-def page(title, body, refresh=None):
-    meta = '<meta http-equiv="refresh" content="%d">' % refresh if refresh else ""
+def page(title, body, refresh=None, head_extra=""):
+    meta = ('<meta http-equiv="refresh" content="%d">' % refresh if refresh else "") + head_extra
     return ("<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content='width=device-width,"
             "initial-scale=1'>%s<title>%s</title><style>%s</style></head><body><main><div class=banner>%s</div>%s"
             "</main></body></html>" % (meta, esc(title), CSS, esc(NOTICE), body))
@@ -214,6 +218,124 @@ def render_journal(folder, name):
     return page(name, body, refresh=15)
 
 
+LIVE_SCRIPT = """<script>
+(function () {
+  var box = document.getElementById('live'), conn = document.getElementById('conn'), bad = 0;
+  function tick() {
+    if (document.hidden) { return; }
+    fetch('/live?fragment=1', {cache: 'no-store'})
+      .then(function (r) { if (!r.ok) { throw new Error(r.status); } return r.text(); })
+      .then(function (t) { box.innerHTML = t; bad = 0; conn.hidden = true; })
+      .catch(function () { bad += 1; if (bad >= 3) { conn.hidden = false; } });
+  }
+  setInterval(tick, 1000);
+})();
+</script>"""
+
+
+def _epoch(iso):
+    try:
+        return datetime.datetime.fromisoformat(iso).timestamp()
+    except (TypeError, ValueError):
+        return None
+
+
+LEVEL_STYLE = (("opening_range_high", "range high", "var(--warn)", "6 3"), ("opening_range_low", "range low", "var(--warn)", "6 3"),
+               ("breakout_up", "long trigger", "var(--good)", "2 3"), ("breakout_down", "short trigger", "var(--bad)", "2 3"),
+               ("day_average", "day avg", "var(--accent)", "2 3"))
+
+
+def spot_svg(series, candle_closes, levels):
+    """NIFTY through the day: candle closes before the first live tick, then every live tick, with the opening range, the
+    breakout triggers and the day average drawn as lines. Plain inline SVG, no scripts."""
+    first = _epoch(series[0][0]) if series else None
+    pts = []
+    for rows in (candle_closes or [], series or []):
+        for row in rows:
+            if not (isinstance(row, list) and len(row) == 2):
+                continue
+            e, v = _epoch(row[0]), _dec(row[1])
+            if e is None or v is None:
+                continue
+            if rows is candle_closes and first is not None and e >= first:
+                continue
+            pts.append((e, v, row[0]))
+    if len(pts) < 2:
+        return ""
+    pts.sort(key=lambda p: p[0])
+    thinned = pts[::max(1, len(pts) // 700)]
+    if thinned[-1] is not pts[-1]:
+        thinned.append(pts[-1])
+    pts = thinned
+    lv = {k: _dec(v) for k, v in (levels or {}).items()}
+    lv = {k: v for k, v in lv.items() if v is not None}
+    ys = [p[1] for p in pts] + list(lv.values())
+    lo, hi = min(ys), max(ys)
+    pad = (hi - lo) * Decimal("0.08") or Decimal(1)
+    lo, hi = lo - pad, hi + pad
+    span = hi - lo
+    t0, t1 = pts[0][0], pts[-1][0]
+    tspan = (t1 - t0) or 1
+    w, h, pl, pr, pt, pb = 640, 240, 10, 112, 14, 22
+
+    def x(e):
+        return pl + (w - pl - pr) * ((e - t0) / tspan)
+
+    def y(v):
+        return pt + (h - pt - pb) * (1 - float((v - lo) / span))
+    out = ["<svg viewBox='0 0 %d %d' role=img aria-label='NIFTY spot with the opening range and breakout levels'>" % (w, h)]
+    placed = []
+    for key, label, colour, dash in LEVEL_STYLE:
+        if key not in lv:
+            continue
+        yy = y(lv[key])
+        out.append("<line x1=%d x2=%d y1=%.1f y2=%.1f stroke='%s' stroke-dasharray='%s' stroke-width='1' opacity='.8'/>" % (
+            pl, w - pr, yy, yy, colour, dash))
+        ly = yy + 3
+        while any(abs(ly - p) < 10 for p in placed):
+            ly += 10
+        placed.append(ly)
+        out.append("<text x=%d y=%.1f fill='%s' font-size=10>%s %s</text>" % (
+            w - pr + 4, ly, colour, esc(label), esc("{:,.0f}".format(lv[key]))))
+    out.append("<polyline fill=none stroke='var(--ink)' stroke-width=1.6 points='%s'/>" % " ".join(
+        "%.1f,%.1f" % (x(e), y(v)) for e, v, _ in pts))
+    e, v, _ = pts[-1]
+    out.append("<circle cx=%.1f cy=%.1f r=4 fill='var(--accent)'/>" % (x(e), y(v)))
+    out.append("<text x=%.1f y=%.1f fill='var(--accent)' font-size=11 font-weight=700 text-anchor=end>%s</text>" % (
+        x(e) - 7, max(y(v) - 7, 11), esc("{:,.2f}".format(v))))
+    out.append("<text x=%d y=%d fill='var(--mute)' font-size=10>%s</text>" % (pl, h - 6, esc(str(pts[0][2])[11:16])))
+    out.append("<text x=%d y=%d fill='var(--mute)' font-size=10 text-anchor=end>%s</text>" % (
+        w - pr, h - 6, esc(str(pts[-1][2])[11:16])))
+    out.append("</svg>")
+    return "".join(out)
+
+
+def _chain_table(cv):
+    rows = (cv or {}).get("rows") or []
+    if not rows:
+        return "<p class=mute>no option quotes yet</p>"
+
+    def cell(side, tag):
+        side = side or {}
+        label = esc(side.get("ltp") or "-") + ("<span class=tag>%s</span>" % esc(tag) if tag else "")
+        return label, esc(side.get("bid") or "-"), esc(side.get("ask") or "-")
+    body = []
+    for r in rows:
+        held = r.get("held") or {}
+        ce_ltp, ce_bid, ce_ask = cell(r.get("ce"), held.get("CE"))
+        pe_ltp, pe_bid, pe_ask = cell(r.get("pe"), held.get("PE"))
+        cls = " ".join(c for c in ("atm" if r.get("atm") else "", "held" if (held.get("CE") or held.get("PE")) else "") if c)
+        body.append("<tr%s><td class=n>%s</td><td class=n>%s</td><td class=n>%s</td><td class=n>%s</td><td class=n>%s</td>"
+                    "<td class=n>%s</td><td class=n>%s</td></tr>" % (
+                        " class='%s'" % cls if cls else "", ce_ltp, ce_bid, ce_ask, esc(r.get("strike")), pe_bid, pe_ask,
+                        pe_ltp))
+    return ("<div class=tbl><table><tr><th class=n>CE last</th><th class=n>CE bid</th><th class=n>CE ask</th>"
+            "<th class=n>STRIKE</th><th class=n>PE bid</th><th class=n>PE ask</th><th class=n>PE last</th></tr>%s</table></div>"
+            "<p class=mute>Expiry %s. The bold row is at the money; BUY / SELL marks the legs of your open paper position.</p>" % (
+                "".join(body), esc(cv.get("expiry"))))
+
+
+
 def _dec(x):
     try:
         return None if x is None else Decimal(str(x))
@@ -297,7 +419,8 @@ def _open_position_card(pos):
     return "<div class=card>%s</div>" % body
 
 
-def render_live(state_path, journal_dir=None, now=None):
+def live_fragment(state_path, journal_dir=None, now=None):
+    """The inside of the Live page. The page swaps it in place every second, so the figures move without a reload."""
     now = now or datetime.datetime.now(datetime.timezone.utc)
     st = load_live_state(state_path)
     if st is None:
@@ -305,10 +428,14 @@ def render_live(state_path, journal_dir=None, now=None):
                 "during market hours:<pre>python -m nifty_live.live_run --config my_real_config.json --dashboard</pre>"
                 "or preview it any time on a simulated clock:<pre>python -m nifty_live.live_run --replay "
                 "data/recordings/YYYY-MM-DD --config my_real_config.json --dashboard</pre></div>" % esc(state_path))
-        return page("Live paper session", body, refresh=5)
+        return body
     mode = st.get("mode", "LIVE")
     chip = ("<span class='chip live'>LIVE quotes</span>" if mode == "LIVE"
             else "<span class='chip replay'>REPLAY - simulated clock</span>")
+    if st.get("entry_mode") == "AUTO":
+        chip += " <span class='chip live'>AUTO paper entry &amp; exit</span>"
+    elif st.get("entry_mode") == "MANUAL":
+        chip += " <span class='chip'>entries need your yes</span>"
     body = "<p><a href='/'>&larr; journals</a></p><h1>Live paper session %s</h1>" % chip
     body += "<p class=mute>%s &middot; %s &middot; status %s &middot; market time %s</p>" % (
         esc(st.get("label")), esc(st.get("day")), esc(st.get("status")), _hhmmss(st.get("updated_at")))
@@ -325,6 +452,12 @@ def render_live(state_path, journal_dir=None, now=None):
     if st.get("kill_switch"):
         body += "<div class=alert><b>KILL switch is on.</b> No new paper entry will be made.</div>"
 
+    poll = st.get("poll_seconds")
+    fresh = mode != "LIVE" or (age is not None and age <= max(4 * (poll or 30), 20))
+    body += "<p class=mute><span class='dot%s'></span>%s &middot; page updates every second</p>" % (
+        "" if fresh else " off",
+        "REPLAY on a simulated clock" if mode != "LIVE" else "live: last data written %s ago%s" % (
+            "?" if age is None else "%d s" % age, " &middot; polling every %s s" % poll if poll else ""))
     market, totals = st.get("market") or {}, st.get("totals")
     tiles = [("NIFTY spot", esc(market.get("spot") or "-")),
              ("quote age", esc("%s s" % market["data_age_seconds"]) if market else "-")]
@@ -362,6 +495,12 @@ def render_live(state_path, journal_dir=None, now=None):
         body += "<p class=mute>Next decision slot: %s (a slot every 5 minutes from %s to %s).</p>" % (
             _hhmmss(sl.get("next")), _hhmmss(sl.get("first")), _hhmmss(sl.get("last")))
 
+    price = spot_svg(st.get("spot_series"), st.get("candle_closes"), st.get("levels"))
+    if price:
+        body += "<h2>NIFTY today, with the opening range and breakout triggers</h2><div class=card>%s</div>" % price
+    if st.get("chain_view"):
+        body += "<h2>Option chain around the money (live quotes)</h2><div class=card>%s</div>" % _chain_table(st["chain_view"])
+
     pts = []
     for row in st.get("curve") or []:
         v = _dec(row[1]) if isinstance(row, list) and len(row) == 2 else None
@@ -393,7 +532,16 @@ def render_live(state_path, journal_dir=None, now=None):
              "journal pages stay hidden until 30 completed real paper trades; the figures here are a live view only.</p>" % (
                  esc(lim.get("risk_per_trade_inr")), esc(lim.get("max_daily_loss_inr")), esc(lim.get("flat_by_ist")),
                  esc(window[0]), esc(window[1])))
-    return page("Live paper session", body, refresh=3)
+    return body
+
+
+def render_live(state_path, journal_dir=None, now=None):
+    """The full Live page: the fragment plus one small script that re-fetches the fragment every second (GET only). With
+    scripts off, a plain meta refresh does the same more slowly."""
+    inner = live_fragment(state_path, journal_dir, now)
+    body = ("<div id=conn class=alert hidden>Lost the connection to the dashboard server. The figures below are not "
+            "updating.</div><div id=live>%s</div>%s" % (inner, LIVE_SCRIPT))
+    return page("Live paper session", body, head_extra='<noscript><meta http-equiv="refresh" content="3"></noscript>')
 
 
 def route(folder, raw_path, live_state=None):
@@ -402,6 +550,8 @@ def route(folder, raw_path, live_state=None):
     if url.path == "/":
         return 200, render_index(folder)
     if url.path == "/live":
+        if "fragment" in parse_qs(url.query):
+            return 200, live_fragment(live_state or DEFAULT_LIVE_STATE, folder)
         return 200, render_live(live_state or DEFAULT_LIVE_STATE, folder)
     if url.path == "/journal":
         name = (parse_qs(url.query).get("name") or [""])[0]
@@ -446,7 +596,7 @@ def main(argv=None):
     p.add_argument("--journal-dir", default=DEFAULT_DIR)
     p.add_argument("--live-state", default=DEFAULT_LIVE_STATE, help="state file written by nifty_live.live_run")
     args = p.parse_args(argv)
-    server = HTTPServer((BIND_HOST, args.port), make_handler(os.path.abspath(args.journal_dir), args.live_state))
+    server = ThreadingHTTPServer((BIND_HOST, args.port), make_handler(os.path.abspath(args.journal_dir), args.live_state))
     print("%s\nServing journals from %s at http://%s:%d  (Ctrl+C to stop)" % (
         NOTICE, args.journal_dir, BIND_HOST, args.port))
     try:

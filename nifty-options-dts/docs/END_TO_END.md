@@ -38,7 +38,8 @@ python -m nifty_core.cli check-data --scenario NAME_OR_PATH
 
 1. Run `run-day` (or `ticket --at HH:MM`) and read the ticket. It states the contracts, the net debit, the Total Defined Risk and the per-trade limit, and prints a 16-character fingerprint.
 2. If you agree, re-run with `--answer FINGERPRINT="yes"`. The reply must start with "yes". A question, a condition or doubt ("yes but..."), a batch or standing instruction ("yes to all"), or a number that is not on the ticket makes it not count. The reply is stored in the journal exactly as typed, whether accepted or not.
-3. There is no automatic approval and no flag for one. The tool cannot distinguish a person from a script that supplies the reply.
+3. There is no automatic approval and no flag for one in these command-line tools. (Only `python -m nifty_live.live_run`
+   has an operator-chosen `--entry-mode auto` for PAPER trading; see `LIVE_PAPER.md`.) The tool cannot distinguish a person from a script that supplies the reply.
 4. The replay applies the reply at the decision timestamp. A real-time flow would have to re-run the whole pipeline on fresh data after the human replies, because an approval goes stale after the 60-second staleness limit.
 
 ## The journal

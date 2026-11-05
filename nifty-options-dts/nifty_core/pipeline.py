@@ -31,6 +31,7 @@ from .positions import manager as manager_mod
 from .positions import params as position_params
 from .regime import params as regime_params
 from .risk import engine as risk_engine
+from .risk import ledger as ledger_mod
 from .strategy import engine as strategy_engine
 from .strategy import params as strategy_params
 from .versioned import ROOT
@@ -41,6 +42,9 @@ Context = namedtuple("Context", (
     defaults=(None,))
 DaySummary = namedtuple("DaySummary", (
     "day status_counts entries exits criticals net_pnl_inr tickets_awaiting final_ledger journal_path"))
+AUTO_REPLY = "(automatic paper entry: no human reply)"
+AUTO_WHY = ("automatic paper entry is switched on for this run by the operator, so the risk-approved ticket is entered "
+            "without a human reply. Paper only: the fill is simulated.")
 PendingTicket = namedtuple("PendingTicket", "ticket approval candidate regime_label decided_at")
 
 
@@ -122,6 +126,48 @@ def _refuse_second_traded_run(journal, day):
                                "day's limits cannot be reset by running it again" % day.isoformat())
 
 
+def restore_trades(journal, day):
+    """The paper trades earlier runs of `day` made in this journal, oldest first. A trade whose run stopped before it
+    was closed ("orphan") is valued at its last recorded mark, or at minus its entry costs if no mark was recorded."""
+    records = journal_mod.read_records(journal.path)
+    runs = set(r["run_id"] for r in records if r["kind"] == "RUN_START" and r["payload"].get("day") == day.isoformat())
+    exits, marks = {}, {}
+    for r in records:
+        if r["run_id"] not in runs:
+            continue
+        if r["kind"] == "EXIT":
+            exits[r["payload"]["position_id"]] = r
+        elif r["kind"] == "MARK":
+            marks[r["payload"]["position_id"]] = r
+    out = []
+    for r in records:
+        p = r["payload"]
+        if r["run_id"] not in runs or r["kind"] != "EXECUTION" or p.get("kind") != "ENTRY" or p.get("status") != "FILLED":
+            continue
+        pid = p["execution_id"]
+        legs = [{"contract": l["contract"], "side": l["side"], "units": l["units"], "entry": l["fill_price"]}
+                for l in p["legs"]]
+        trade = {"position_id": pid, "approval_id": p["approval_id"], "candidate_id": p["candidate_id"],
+                 "long": next(l["contract"] for l in p["legs"] if l["side"] == "BUY"),
+                 "short": next(l["contract"] for l in p["legs"] if l["side"] == "SELL"), "lots": p["legs"][0]["lots"],
+                 "opened_at": p["executed_at"], "legs": legs}
+        if pid in exits:
+            x = exits[pid]
+            trade.update(closed=True, administrative=bool(x["payload"].get("administrative")), closed_at=x["at"],
+                         exit_reason=x["payload"].get("exit_reason"), gross=x["payload"]["gross_pnl_inr"],
+                         net=x["payload"]["net_pnl_inr"])
+        elif pid in marks:
+            u = marks[pid]["payload"]["unrealized"]
+            trade.update(closed=False, administrative=True, closed_at=marks[pid]["at"], exit_reason="RUNNER_STOPPED",
+                         gross=u["gross_pnl_inr"], net=u["net_pnl_inr"], valued="last recorded mark")
+        else:
+            costs = p["actual"]["entry_costs"]["total_inr"]
+            trade.update(closed=False, administrative=True, closed_at=r["at"], exit_reason="RUNNER_STOPPED",
+                         gross="0.00", net="-" + costs, valued="entry costs only (no mark had been recorded)")
+        out.append(trade)
+    return out
+
+
 class DayRunner(object):
     """One paper day, advanced one decision time at a time.
 
@@ -131,20 +177,33 @@ class DayRunner(object):
     it goes stale or the next decision time arrives. Nothing is entered without an accepted reply for that exact ticket.
     """
 
-    def __init__(self, provider, day, ctx, kill_dir, journal, answers=None, hold_unanswered=False):
+    def __init__(self, provider, day, ctx, kill_dir, journal, answers=None, hold_unanswered=False, auto_entry=False,
+                 restore=False):
         paper_only.assert_paper_only(ctx.cfg)
         self.provider, self.day, self.ctx, self.journal = provider, day, ctx, journal
         self.answers = dict(answers or {})
         self.ticks = tick_times(ctx, day)
         if not self.ticks:
             raise ValueError("no trading session on %s" % day)
-        _refuse_second_traded_run(journal, day)
+        # A fresh run of a day that already traded would start with fresh limits, so it is refused (replays, run-day).
+        # A live session that is RESTARTED instead restores the day from the journal: earlier trades are carried into
+        # the ledger, so the day's trade count and loss limits carry on and cannot be reset.
+        self._carried = restore_trades(journal, day) if restore else []
+        self.carry_notes = []
+        if not restore:
+            _refuse_second_traded_run(journal, day)
         cfg = ctx.cfg
         self.mgr = risk_engine.RiskManager(cfg, ctx.cost_engine, ctx.specs, ctx.calendar, kill_dir, day)
         self.ex = paper_mod.PaperExecutor(cfg, ctx.cost_engine, ctx.specs, ctx.calendar, self.mgr, provider)
+        setup_exit = None
+        if ctx.setup_params is not None:
+            def setup_exit(now, entry_label):
+                return strategy_engine.setup_has_failed(provider, ctx.calendar, ctx.regime_params, ctx.setup_params,
+                                                        now, entry_label)
         self.pm = manager_mod.PositionManager(cfg, ctx.position_params, self.ex, self.mgr, provider, ctx.calendar,
                                               ctx.regime_params, ctx.cost_engine, data_mode=ctx.data_mode,
-                                              data_label=_label(provider))
+                                              data_label=_label(provider), setup_exit_fn=setup_exit)
+        self.auto_entry = bool(auto_entry)
         self.status_counts, self.awaiting, self.entries, self.locked = Counter(), [], 0, False
         self.journaled_exit = set()
         self.pending = {} if hold_unanswered else None
@@ -160,7 +219,35 @@ class DayRunner(object):
             "scenario": getattr(getattr(self.provider, "scenario", None), "name", None)}
         if ctx.setup_params is not None:
             payload["intraday_setup_thresholds"] = ctx.setup_params.fingerprint
+        if self._carried:
+            payload["restored_trades"] = [{"position_id": t["position_id"], "closed_in_earlier_run": t["closed"]}
+                                          for t in self._carried]
         self.journal.append("RUN_START", at, payload)
+        self._apply_carry(at)
+
+    def _apply_carry(self, at):
+        """Bring the day's earlier trades into this run. A position an earlier run left open can no longer be managed, so
+        it is closed ADMINISTRATIVELY at its last recorded mark (journaled as an EXIT with exit_reason RUNNER_STOPPED and
+        administrative true), then every earlier trade is added to the risk ledger as closed."""
+        if not self._carried:
+            return
+        positions = []
+        for t in self._carried:
+            if not t["closed"]:
+                self.journal.append("EXIT", at, {
+                    "position_id": t["position_id"], "exit_reason": "RUNNER_STOPPED", "forced": False,
+                    "gross_pnl_inr": t["gross"], "net_pnl_inr": t["net"], "administrative": True,
+                    "note": ("the run that opened this paper position stopped while it was open, so it could not be "
+                             "managed. Closed administratively, valued at its %s. Not a simulated exit fill." % t["valued"])})
+                self.carry_notes.append("restored: position %s was left open by an earlier run and is closed "
+                                        "administratively at its %s (net INR %s)" % (t["position_id"][:10], t["valued"], t["net"]))
+            positions.append(ledger_mod.Position(
+                t["approval_id"], t["candidate_id"], "RESTORED", t["long"], t["short"], t["lots"], Decimal(0), Decimal(0),
+                datetime.datetime.fromisoformat(t["opened_at"]), ledger_mod.CLOSED, Decimal(t["net"]),
+                datetime.datetime.fromisoformat(at.isoformat() if not t["closed"] else t["closed_at"])))
+        self.mgr.carry_over(positions)
+        self.carry_notes.append("restored %d earlier trade(s) of today from this journal: %d counted against today's limit "
+                                "of %d" % (len(self._carried), len(self._carried), self.ctx.cfg.max_trades_per_day))
 
     def tick(self, t):
         """Manage open positions, then take at most one entry decision, as of time t. Returns the decision status."""
@@ -315,6 +402,12 @@ class DayRunner(object):
         journal.append("TICKET", t, {"fingerprint": ticket.fingerprint, "text": ticket.text,
                                       "approval_id": rd.approval.approval_id})
         reply = self.answers.get(ticket.fingerprint)
+        if reply is None and self.auto_entry:
+            # Operator-chosen automatic PAPER entry (live_run --entry-mode auto). Every gate above still applied: the
+            # strategy, the risk limits, the kill switch and the executor's own checks. It is journaled as such.
+            journal.append("APPROVAL", t, {"fingerprint": ticket.fingerprint, "reply_verbatim": AUTO_REPLY,
+                                            "accepted": True, "why": AUTO_WHY, "source": "auto_paper_entry"})
+            return self._enter(rd, cand, record, t)
         if reply is None:
             self.awaiting.append(ticket.fingerprint)
             if self.pending is None:
@@ -334,16 +427,21 @@ class DayRunner(object):
             record["ticket_fingerprint"] = ticket.fingerprint
             journal.append("DECISION", t, record)
             return "DECLINED"
-        result, pos = pm.enter(rd.approval, cand, cand.lots, t)
-        journal.append("EXECUTION", t, paper_mod.result_to_journal(result))
+        return self._enter(rd, cand, record, t)
+
+    def _enter(self, rd, cand, record, t):
+        """Paper entry of an approved candidate (a human yes, a supplied answer, or the automatic paper policy)."""
+        result, pos = self.pm.enter(rd.approval, cand, cand.lots, t)
+        self.journal.append("EXECUTION", t, paper_mod.result_to_journal(result))
         if pos is None:
-            _release(mgr, rd.approval)
+            _release(self.mgr, rd.approval)
             record["status"] = "ENTRY_NOT_FILLED"
-            journal.append("DECISION", t, record)
+            record["reasons_not_filled"] = _reason_list(result.reasons)
+            self.journal.append("DECISION", t, record)
             return "ENTRY_NOT_FILLED"
         record["status"] = "ENTERED"
         record["position_id"] = pos.position_id
-        journal.append("DECISION", t, record)
+        self.journal.append("DECISION", t, record)
         return "ENTERED"
 
 
