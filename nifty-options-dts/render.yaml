@@ -5,7 +5,7 @@ services:
     plan: free
     rootDir: nifty-options-dts
     buildCommand: "echo no dependencies"
-    startCommand: python -m nifty_live.live_run --config my_real_config.json --dashboard
+    startCommand: python -m nifty_live.serve --config my_real_config.json
     envVars:
       - key: DASHBOARD_HOST
         value: 0.0.0.0
