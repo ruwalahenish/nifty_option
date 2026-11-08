@@ -3,6 +3,7 @@ services:
     name: nifty-paper
     runtime: python
     plan: free
+    rootDir: nifty-options-dts
     buildCommand: "echo no dependencies"
     startCommand: python -m nifty_live.live_run --config my_real_config.json --dashboard
     envVars:
