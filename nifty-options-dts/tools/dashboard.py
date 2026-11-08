@@ -40,6 +40,26 @@ MAX_STATE_BYTES = 8 * 1024 * 1024
 HEX16 = re.compile(r"^[0-9a-f]{16}$")
 STALE_AFTER_SECONDS = 120
 BIND_HOST = "127.0.0.1"
+
+
+def bind_host():
+    """Loopback unless DASHBOARD_HOST is set (cloud deploy). A non-loopback host REQUIRES DASHBOARD_PASSWORD."""
+    host = os.environ.get("DASHBOARD_HOST", BIND_HOST)
+    if host != BIND_HOST and not os.environ.get("DASHBOARD_PASSWORD"):
+        raise SystemExit("error: DASHBOARD_HOST=%s needs DASHBOARD_PASSWORD set (the page shows your positions)" % host)
+    return host
+
+
+def _authorized(header):
+    pw = os.environ.get("DASHBOARD_PASSWORD")
+    if not pw:
+        return True
+    import base64, hmac
+    try:
+        user_pass = base64.b64decode((header or "")[6:]).decode("utf-8") if (header or "").startswith("Basic ") else ""
+    except Exception:
+        return False
+    return hmac.compare_digest(user_pass.partition(":")[2].encode(), pw.encode())
 NOTICE = "PAPER TRADING ONLY. Simulated fills. Not financial advice. This page cannot place or approve anything."
 
 CSS = """
@@ -566,6 +586,12 @@ def make_handler(folder, live_state=None):
         server_version = "PaperDashboard"
 
         def do_GET(self):
+            if not _authorized(self.headers.get("Authorization")):
+                self.send_response(401)
+                self.send_header("WWW-Authenticate", 'Basic realm="paper dashboard"')
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
             try:
                 status, text = route(folder, self.path, live_state)
             except Exception as e:                      # never crash the page on one bad journal
@@ -596,7 +622,7 @@ def main(argv=None):
     p.add_argument("--journal-dir", default=DEFAULT_DIR)
     p.add_argument("--live-state", default=DEFAULT_LIVE_STATE, help="state file written by nifty_live.live_run")
     args = p.parse_args(argv)
-    server = ThreadingHTTPServer((BIND_HOST, args.port), make_handler(os.path.abspath(args.journal_dir), args.live_state))
+    server = ThreadingHTTPServer((bind_host(), args.port), make_handler(os.path.abspath(args.journal_dir), args.live_state))
     print("%s\nServing journals from %s at http://%s:%d  (Ctrl+C to stop)" % (
         NOTICE, args.journal_dir, BIND_HOST, args.port))
     try:

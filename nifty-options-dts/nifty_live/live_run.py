@@ -197,9 +197,9 @@ def _scenario_path(arg):
 def start_dashboard(port, journal_dir, state_path):
     from http.server import ThreadingHTTPServer
     from tools import dashboard
-    server = ThreadingHTTPServer((dashboard.BIND_HOST, port), dashboard.make_handler(os.path.abspath(journal_dir), state_path))
+    server = ThreadingHTTPServer((dashboard.bind_host(), port), dashboard.make_handler(os.path.abspath(journal_dir), state_path))
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    print("dashboard: http://%s:%d/live   (read-only; this computer only)" % (dashboard.BIND_HOST, port))
+    print("dashboard: http://%s:%d/live   (read-only)" % (dashboard.bind_host(), port))
     return server
 
 
@@ -426,7 +426,7 @@ def build_parser():
     p.add_argument("--journal-dir", default=JOURNAL_DIR)
     p.add_argument("--state-file", default=STATE_PATH)
     p.add_argument("--dashboard", action="store_true", help="also serve the read-only dashboard from this process")
-    p.add_argument("--port", type=int, default=8765)
+    p.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8765)))
     p.add_argument("--replay", default=None, metavar="FIXTURE_OR_RECORDING",
                    help="preview on a simulated clock: a fixture name, a scenario JSON, or data/recordings/<date>")
     p.add_argument("--speed", type=float, default=3.0, help="replay only: seconds per simulated step")
