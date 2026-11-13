@@ -1,6 +1,6 @@
 # nifty-options-dts
 
-A NIFTY intraday options **paper-trading** system for defined-risk debit spreads (Bull Call Debit Spread, Bear Put Debit Spread). It is an educational project.
+A NIFTY intraday options **paper-trading** system for defined-risk debit spreads (Bull Call Debit Spread, Bear Put Debit Spread). It also has an adaptive **strategy selector** that reads the market and chooses between four defined-risk intraday strategies (directional credit spread, directional debit spread, iron condor, iron butterfly) or says NO TRADE; see [docs/STRATEGY_SELECTOR.md](docs/STRATEGY_SELECTOR.md). It is an educational project.
 
 **No live trading.** Version 1 has no capability to place a real order, now or through any future data-provider interface. Paper mode cannot be switched off by config, environment variable or command line.
 
@@ -38,6 +38,7 @@ The skills in `skills/` are thin front-ends over `nifty_core`. They are installe
 |---|---|
 | `nifty-regime` | describe the market regime at a time |
 | `nifty-strategy` | propose a debit-spread candidate or NO TRADE |
+| `nifty-select` | read the market and choose one of four intraday strategies (credit spread, debit spread, iron condor, iron butterfly) or NO TRADE |
 | `nifty-risk` | APPROVED or BLOCKED, with the defined-risk arithmetic |
 | `nifty-paper` | show the ticket, record your reply, run the simulated day |
 | `nifty-positions` | how open positions are managed and exited |
@@ -46,6 +47,7 @@ The skills in `skills/` are thin front-ends over `nifty_core`. They are installe
 ```bash
 python -m nifty_core.cli regime --scenario bullish_trend --at 12:30
 python -m nifty_core.cli candidate --scenario bullish_trend --at 12:30
+python -m nifty_core.cli select-strategy --scenario bullish_trend --at 12:30 --profile intraday
 python -m nifty_core.cli risk --scenario bullish_trend --at 12:30
 python -m nifty_core.cli ticket --scenario bullish_trend --at 12:30
 python -m nifty_core.cli run-day --scenario bullish_trend --journal trader/journal/bullish.jsonl
@@ -60,4 +62,4 @@ Scenarios are the fixture names in `tests/fixtures/scenarios` (or a path). See [
 
 ## Documents
 
-[docs/REGIME_ENGINE.md](docs/REGIME_ENGINE.md), [docs/STRATEGY_ENGINE.md](docs/STRATEGY_ENGINE.md), [docs/RISK_ENGINE.md](docs/RISK_ENGINE.md), [docs/PAPER_EXECUTION.md](docs/PAPER_EXECUTION.md), [docs/POSITION_MANAGEMENT.md](docs/POSITION_MANAGEMENT.md), [docs/END_TO_END.md](docs/END_TO_END.md), [docs/REAL_DATA.md](docs/REAL_DATA.md), [docs/SAFETY_AUDIT.md](docs/SAFETY_AUDIT.md), [docs/COSTS.md](docs/COSTS.md), [docs/DATA_MODEL.md](docs/DATA_MODEL.md), [docs/SPREAD_MODEL.md](docs/SPREAD_MODEL.md).
+[docs/REGIME_ENGINE.md](docs/REGIME_ENGINE.md), [docs/STRATEGY_ENGINE.md](docs/STRATEGY_ENGINE.md), [docs/STRATEGY_SELECTOR.md](docs/STRATEGY_SELECTOR.md), [docs/RISK_ENGINE.md](docs/RISK_ENGINE.md), [docs/PAPER_EXECUTION.md](docs/PAPER_EXECUTION.md), [docs/POSITION_MANAGEMENT.md](docs/POSITION_MANAGEMENT.md), [docs/END_TO_END.md](docs/END_TO_END.md), [docs/REAL_DATA.md](docs/REAL_DATA.md), [docs/SAFETY_AUDIT.md](docs/SAFETY_AUDIT.md), [docs/COSTS.md](docs/COSTS.md), [docs/DATA_MODEL.md](docs/DATA_MODEL.md), [docs/SPREAD_MODEL.md](docs/SPREAD_MODEL.md).

@@ -24,6 +24,11 @@ EVENT_COLUMNS = ("when", "name", "impact")
 
 
 def _rows(path, columns):
+    import os
+    if not os.path.isfile(path):
+        raise SystemExit("error: %s does not exist. Nothing has been recorded there yet: the live runner or recorder "
+                         "(python -m nifty_live.live_run, or python -m nifty_live.recorder) must run during market hours "
+                         "first. It writes chain.csv and candles.csv under data/recordings/<date>/." % path)
     with open(path, "r", encoding="utf-8", newline="") as fh:
         reader = csv.DictReader(fh)
         missing = [c for c in columns if c not in (reader.fieldnames or [])]

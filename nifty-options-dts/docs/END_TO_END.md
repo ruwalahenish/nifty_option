@@ -11,6 +11,7 @@ data (read-only provider) -> regime -> strategy -> risk -> TICKET -> your "yes" 
 ```
 python -m nifty_core.cli regime --scenario NAME --at HH:MM
 python -m nifty_core.cli candidate --scenario NAME --at HH:MM
+python -m nifty_core.cli select-strategy --scenario NAME --at HH:MM [--recheck-at HH:MM] [--position-open]
 python -m nifty_core.cli risk --scenario NAME --at HH:MM
 python -m nifty_core.cli ticket --scenario NAME --at HH:MM
 python -m nifty_core.cli run-day --scenario NAME [--journal PATH] [--answer FINGERPRINT="yes"]
@@ -21,7 +22,7 @@ python -m nifty_core.cli check-data --scenario NAME_OR_PATH
 
 `check-data` validates a data file the way `run-day` would and prints a summary. Real recorded data is covered in [REAL_DATA.md](REAL_DATA.md).
 
-`regime`, `candidate`, `risk` and `ticket` are stateless views of one moment (a fresh day ledger is assumed for `risk` and `ticket`). Only `run-day` carries state through a day.
+`select-strategy` chooses among four strategies or NO TRADE and is a proposal only (see [STRATEGY_SELECTOR.md](STRATEGY_SELECTOR.md)); it is not yet wired into `run-day`. `regime`, `candidate`, `risk` and `ticket` are stateless views of one moment (a fresh day ledger is assumed for `risk` and `ticket`). Only `run-day` carries state through a day.
 
 ## What each decision becomes
 

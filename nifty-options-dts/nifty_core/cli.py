@@ -2,6 +2,7 @@
 
     python -m nifty_core.cli regime   --scenario NAME_OR_PATH --at HH:MM
     python -m nifty_core.cli candidate --scenario ... --at HH:MM
+    python -m nifty_core.cli select-strategy --scenario ... --at HH:MM [--recheck-at HH:MM] [--position-open]
     python -m nifty_core.cli risk     --scenario ... --at HH:MM
     python -m nifty_core.cli ticket   --scenario ... --at HH:MM
     python -m nifty_core.cli run-day  --scenario ... [--journal PATH] [--answer FINGERPRINT=REPLY ...]
@@ -30,6 +31,9 @@ from .market.ist import parse_ist
 from .regime import engine as regime_engine
 from .risk import engine as risk_engine
 from .risk import ledger as ledger_mod
+from .selector import engine as selector_engine
+from .selector import params as selector_params
+from .selector import report as selector_report
 from .strategy import engine as strategy_engine
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -128,6 +132,27 @@ def cmd_candidate(args, out):
             c.net_debit_inr.quantize(c.net_debit_inr.__class__("0.01")), c.width_points))
         lines.append("  A candidate is a proposal only: it has not been risk-checked or approved.")
     _print(out, args, "\n".join(lines), strategy_engine.decision_to_journal(d))
+    return 0
+
+
+def cmd_select_strategy(args, out):
+    """Read the market and pick one of the four strategies, or NO TRADE. A proposal only: nothing is entered."""
+    ctx, scenario, provider = _load(args)
+    p = selector_params.load_params()
+    t = _at(args, scenario)
+    kill = _kill_dir(args)
+    sel = selector_engine.select_at(provider, ctx, p, t, args.position_open, kill, scenario.data_label)
+    text, data = selector_report.render(sel, not args.brief), selector_report.to_json(sel)
+    if args.recheck_at:
+        t2 = parse_ist("%s %s" % (scenario.day.isoformat(), args.recheck_at))
+        later = selector_engine.select_at(provider, ctx, p, t2, args.position_open, kill, scenario.data_label)
+        status, why = selector_engine.recheck(sel, later, p)
+        text += "\n\n" + "=" * 70 + "\nRE-EVALUATION AT ENTRY TIME %s: %s\n  %s\n" % (args.recheck_at, status, why)
+        if status != "CONFIRMED":
+            text += "\n" + selector_report.render(later, not args.brief)
+        data = {"first_decision": data, "recheck": {"at": t2.isoformat(), "status": status, "text": why,
+                                                   "decision": selector_report.to_json(later)}}
+    _print(out, args, text, data)
     return 0
 
 
@@ -261,6 +286,13 @@ def build_parser():
         return sp
     for name, fn in (("regime", cmd_regime), ("candidate", cmd_candidate)):
         common(sub.add_parser(name, allow_abbrev=False)).set_defaults(fn=fn)
+    sp = common(sub.add_parser("select-strategy", allow_abbrev=False))
+    sp.add_argument("--kill-dir", default="trader", help="folder where a KILL file stops entries")
+    sp.add_argument("--position-open", action="store_true", help="a trade is already open: only one may be active")
+    sp.add_argument("--recheck-at", default=None, metavar="HH:MM", help="re-run the decision at the entry time and say "
+                    "whether the original trade is still valid")
+    sp.add_argument("--brief", action="store_true", help="omit the per-strategy condition table")
+    sp.set_defaults(fn=cmd_select_strategy)
     for name, fn in (("risk", cmd_risk), ("ticket", cmd_ticket)):
         sp = common(sub.add_parser(name, allow_abbrev=False))
         sp.add_argument("--kill-dir", default="trader", help="folder where a KILL file stops entries")

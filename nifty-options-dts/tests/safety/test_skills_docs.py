@@ -10,7 +10,7 @@ from tests._base import NoNetworkTestCase
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SKILLS = os.path.join(ROOT, "skills")
-EXPECTED = ("nifty-regime", "nifty-strategy", "nifty-risk", "nifty-paper", "nifty-positions", "nifty-journal")
+EXPECTED = ("nifty-regime", "nifty-strategy", "nifty-select", "nifty-risk", "nifty-paper", "nifty-positions", "nifty-journal")
 
 
 def read(path):
