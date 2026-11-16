@@ -148,6 +148,19 @@ def _table(headers, rows, num=()):
     return "<div class=tbl><table><tr>%s</tr>%s</table></div>" % (head, body)
 
 
+def _setup_rules_card(setup):
+    """The opening-range rules behind the latest decision, one row per rule with its value, its limit and whether it
+    passed, so a breakout the system did not trade can be explained at a glance. Empty when there is nothing to show."""
+    checks = (setup or {}).get("checks") or []
+    if not checks:
+        return ""
+    rows = [["PASS" if c.get("ok") else "<b>FAIL</b>", esc(c.get("rule")), esc(c.get("value")), esc(c.get("limit"))]
+            for c in checks]
+    side = "long (up-breakout)" if (setup or {}).get("side") == "BULL" else "short (down-breakout)"
+    return "<h2>Setup rules (%s)</h2><div class=card>%s</div>" % (
+        esc(side), _table(["", "rule", "value", "needs"], rows))
+
+
 def render_index(folder):
     names = list_journals(folder)
     rows = []
@@ -510,6 +523,7 @@ def live_fragment(state_path, journal_dir=None, now=None):
         why = "<br><span class=mute>%s</span>" % esc(" | ".join(d.get("reasons") or [])) if d.get("reasons") else ""
         body += ("<h2>Latest decision</h2><div class=card><b>%s</b> at %s &middot; regime %s &middot; strategy %s%s</div>" % (
             esc(d.get("status")), _hhmmss(d.get("decision_time")), esc(d.get("regime")), esc(d.get("strategy_outcome")), why))
+    body += _setup_rules_card((d or {}).get("setup"))
     sl = st.get("slots") or {}
     if sl.get("next"):
         body += "<p class=mute>Next decision slot: %s (a slot every 5 minutes from %s to %s).</p>" % (

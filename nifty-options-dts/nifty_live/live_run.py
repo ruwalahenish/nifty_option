@@ -20,6 +20,7 @@ import argparse
 import collections
 import csv
 import datetime as dt
+import decimal
 import json
 import os
 import re
@@ -38,6 +39,8 @@ from nifty_core.data.fixture_provider import load_scenario_file, parse_scenario 
 from nifty_core.errors import JournalError, NiftyError                                       # noqa: E402
 from nifty_core.journal import journal as journal_mod                          # noqa: E402
 from nifty_core.live_session import LiveSession                                # noqa: E402
+from nifty_live import candle_guard                                            # noqa: E402
+from nifty_live import candle_guard                                            # noqa: E402
 from nifty_live import recorder                                                # noqa: E402
 from nifty_live import upstox_reader as ur                                     # noqa: E402
 from tools import csv_to_scenario                                              # noqa: E402
@@ -49,6 +52,7 @@ ANSWERS_PATH = os.path.join(LIVE_DIR, "answers.jsonl")
 JOURNAL_DIR = os.path.join(TRADER_DIR, "journal")
 FIXTURE_DIR = os.path.join(PROJECT, "tests", "fixtures", "scenarios")
 DEFAULT_CONFIG = os.path.join(PROJECT, "config", "config.example.json")
+SPOT_LOG_POINTS = 60                 # about 10 minutes of snapshots at the default poll
 KEEP_CHAINS = 3                      # the pipeline reads only the newest snapshot; a few are kept for safety
 LIVE_MIN_POLL_SECONDS = 5            # fastest live poll; the quote-staleness limit is 60 s, so 5-10 s is comfortable
 HEX16 = re.compile(r"^[0-9a-f]{16}$")
@@ -239,8 +243,8 @@ class Runner(object):
             self.out("%s reply for %s -> %s" % (now.strftime("%H:%M:%S"), fp, status))
             self.publish(now)
 
-    def step(self, now, scenario):
-        for line in self.session.step(now, scenario):
+    def step(self, now, scenario, slot_gate=None):
+        for line in self.session.step(now, scenario, slot_gate):
             self.out("%s %s" % (now.strftime("%H:%M:%S"), line))
         self.announce_tickets(now)
         self.publish(now)
@@ -290,14 +294,18 @@ def run_live(a):
     interval = max(a.interval, LIVE_MIN_POLL_SECONDS)
     runner.poll_seconds = interval
     recent = collections.deque(maxlen=KEEP_CHAINS)
+    spot_log = collections.deque(maxlen=SPOT_LOG_POINTS)         # (time, spot) per snapshot: an independent price for the candle guard
+    guard = candle_guard.CandleGuard()
     failures = 0
-    last_candles_slot = None
+
+    def remember(stamp, spot, rows):
+        recent.append(chain_doc(stamp, spot, rows))
+        spot_log.append((dt.datetime.fromisoformat(stamp), decimal.Decimal(str(spot))))
     try:
         while True:
             t = recorder.now_ist()
             try:
-                recorder.record_snapshot(token, out_dir, t, expiry, a.window,
-                                         sink=lambda stamp, spot, rows: recent.append(chain_doc(stamp, spot, rows)))
+                recorder.record_snapshot(token, out_dir, t, expiry, a.window, sink=remember)
                 failures, runner.problem = 0, None
             except ur.UpstoxReadError as e:
                 failures += 1
@@ -307,8 +315,9 @@ def run_live(a):
                     print("stopping: the token was refused or the service keeps failing")
                     break
             due = [s for s in runner.session.slots if s <= t]
-            if (due and due[-1] != last_candles_slot) or not os.path.exists(os.path.join(out_dir, "candles.csv")):
-                last_candles_slot = due[-1] if due else None
+            # re-read the candles at every poll while a slot is still pending, so a provisional last candle is replaced
+            # by its final values; the guard below decides when the slot may be handled
+            if (due and due[-1] != runner.session.last_slot) or not os.path.exists(os.path.join(out_dir, "candles.csv")):
                 try:
                     recorder.write_candles(token, out_dir, t)
                 except ur.UpstoxReadError as e:
@@ -316,7 +325,8 @@ def run_live(a):
                     print("%s %s" % (t.strftime("%H:%M:%S"), runner.problem))
                 ensure_candles_file(out_dir)
             try:
-                runner.step(t, build_live_scenario(out_dir, day, ctx, recent))
+                runner.step(t, build_live_scenario(out_dir, day, ctx, recent),
+                            slot_gate=lambda slot, now=t: guard.check(slot, now, read_candles(out_dir), tuple(spot_log)))
             except JournalError as e:
                 if runner.session.runner is None:                   # the session could not even open: retrying is pointless
                     print("%s the journal refused this run: %s" % (t.strftime("%H:%M:%S"), e))

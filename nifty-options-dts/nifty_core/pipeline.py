@@ -26,7 +26,7 @@ from .guards import paper_only
 from .intraday import params as intraday_params
 from .journal import journal as journal_mod
 from .market.calendar_nse import NseCalendar
-from .market.ist import ist_datetime
+from .market.ist import ist_datetime, slot_floor
 from .positions import manager as manager_mod
 from .positions import params as position_params
 from .regime import params as regime_params
@@ -249,15 +249,18 @@ class DayRunner(object):
         self.carry_notes.append("restored %d earlier trade(s) of today from this journal: %d counted against today's limit "
                                 "of %d" % (len(self._carried), len(self._carried), self.ctx.cfg.max_trades_per_day))
 
-    def tick(self, t):
-        """Manage open positions, then take at most one entry decision, as of time t. Returns the decision status."""
+    def tick(self, t, skip_entry_reason=None):
+        """Manage open positions, then take at most one entry decision, as of time t. Returns the decision status.
+
+        `skip_entry_reason` (live only): the slot's candle never became final, so no NEW entry is decided on it. The
+        reason is journaled and the status is SLOT_SKIPPED; open positions were already managed above."""
         cfg, journal = self.ctx.cfg, self.journal
         self.expire_pending(t, everything=True)
         # 1 manage open positions first
         for res in self.pm.manage_all(t):
             _journal_position(journal, t, res, self.pm, self.journaled_exit)
         snap = self.mgr.snapshot()
-        if t.time() > hhmm(cfg.entry_window_end_ist) or t.time() >= hhmm(cfg.flat_by_ist):
+        if slot_floor(t).time() > hhmm(cfg.entry_window_end_ist) or t.time() >= hhmm(cfg.flat_by_ist):
             return None
         if self.pm.active():
             return None
@@ -268,6 +271,11 @@ class DayRunner(object):
                                                   "trades_today": snap.trades_today,
                                                   "realized_loss_used_inr": str(snap.realized_loss_used_inr)})
             return None
+        if skip_entry_reason is not None:
+            journal.append("DECISION", t, {"decision_time": t.isoformat(), "status": "SLOT_SKIPPED",
+                                            "reason": skip_entry_reason, "regime": {"label": "NOT_EVALUATED"}})
+            self.status_counts["SLOT_SKIPPED"] += 1
+            return "SLOT_SKIPPED"
         # 2 one decision
         status = self._decide(t)
         self.status_counts[status] += 1
@@ -366,6 +374,8 @@ class DayRunner(object):
                   "strategy": {"outcome": d.outcome, "reasons": _reason_list(d.reasons),
                                "candidates_tested": len(d.considered),
                                "thresholds_fingerprint": d.thresholds_fingerprint}}
+        if d.regime is not None and d.regime.metrics.get("setup"):
+            record["setup"] = d.regime.metrics["setup"]       # the opening-range rules, one by one (value, limit, passed)
         self.last_decision = record
         if d.outcome != strategy_engine.CANDIDATE:
             record["status"] = "NO_TRADE"

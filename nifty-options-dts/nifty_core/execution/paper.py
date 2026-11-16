@@ -40,7 +40,7 @@ from ..costs.models import BUY, SELL, LegExecution, paise
 from ..data import validation as data_validation
 from ..errors import (ContractError, CostRateUnverified, DataNotAvailable, KillSwitchActive, RiskViolation)
 from ..guards import paper_only
-from ..market.ist import to_ist
+from ..market.ist import slot_floor, to_ist
 from ..risk import engine as risk_engine
 from ..contracts import hhmm
 
@@ -220,7 +220,7 @@ class PaperExecutor(object):
                 (now - approval.approved_at).total_seconds(), self._cfg.data_stale_after_seconds)))
         if candidate.decision_time.date() != now.date():
             problems.append(Reason("CANDIDATE_OTHER_DAY", "the candidate is not from today"))
-        if now.time() < hhmm(self._cfg.entry_window_start_ist) or now.time() > hhmm(self._cfg.entry_window_end_ist):
+        if now.time() < hhmm(self._cfg.entry_window_start_ist) or slot_floor(now).time() > hhmm(self._cfg.entry_window_end_ist):
             problems.append(Reason("OUTSIDE_ENTRY_WINDOW", "%s is outside the entry window" % now.strftime("%H:%M:%S")))
         if now.time() >= hhmm(self._cfg.flat_by_ist):
             problems.append(Reason("AFTER_FLAT_BY", "no entry at or after %s" % self._cfg.flat_by_ist))

@@ -45,7 +45,7 @@ from ..instruments import builders
 from ..intraday import setup as intraday_setup
 from ..instruments.spread import KIND_BEAR_PUT, KIND_BULL_CALL
 from ..market.calendar_nse import check_config_fits_session
-from ..market.ist import ist_datetime, to_ist
+from ..market.ist import ist_datetime, slot_floor, to_ist
 from ..regime import engine as regime_engine
 from .params import params_as_json
 
@@ -218,7 +218,7 @@ def decide(regime, chain, events, as_of, cfg, params, regime_params, specs, cale
     if as_of.time() < start:
         gate.append(Reason("OUTSIDE_ENTRY_WINDOW", "%s is before the entry window opens at %s" % (
             as_of.strftime("%H:%M"), cfg.entry_window_start_ist)))
-    elif as_of.time() > end:
+    elif slot_floor(as_of).time() > end:            # the last slot (14:30) is decided at 14:30:0x, not at 14:30:00
         gate.append(Reason("OUTSIDE_ENTRY_WINDOW", "%s is after the entry window closes at %s" % (
             as_of.strftime("%H:%M"), cfg.entry_window_end_ist)))
     if regime is None or regime.as_of != as_of:
@@ -340,7 +340,13 @@ def apply_intraday_setup(regime, provider, calendar, regime_params, setup_params
     result = intraday_setup.evaluate(bars, as_of, setup_params)
     label = {intraday_setup.BULL: regime_engine.BULLISH, intraday_setup.BEAR: regime_engine.BEARISH}.get(
         result.direction, regime_engine.NO_TRADE)
-    return regime._replace(label=label, reasons=tuple(regime_engine.Reason(r.code, r.text) for r in result.reasons))
+    info = {k: str(v) for k, v in result.metrics.items() if k != "rules"}
+    rules = result.metrics.get("rules")
+    if rules:
+        info["side"], info["checks"] = rules["side"], rules["checks"]       # every rule: value, limit, passed or not
+    metrics = dict(regime.metrics, setup=info) if info else regime.metrics
+    return regime._replace(label=label, metrics=metrics,
+                           reasons=tuple(regime_engine.Reason(r.code, r.text) for r in result.reasons))
 
 
 def setup_has_failed(provider, calendar, regime_params, setup_params, as_of, entry_regime_label):

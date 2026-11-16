@@ -57,6 +57,25 @@ class DashboardTests(NoNetworkTestCase):
         self.assertIn("No journals", text)
 
 
+class SetupRulesCardTests(NoNetworkTestCase):
+    def test_every_rule_is_shown_with_its_value_and_limit_and_pass_or_fail(self):
+        html = dashboard._setup_rules_card({"side": "BULL", "checks": [
+            {"rule": "breakout_close", "ok": True, "value": "09:50 closed 25,320.00", "limit": "> 25,318.29"},
+            {"rule": "retest", "ok": False, "value": "none yet", "limit": "low <= 25,323.36 after 09:50"}]})
+        for text in ("Setup rules", "breakout_close", "PASS", "<b>FAIL</b>", "none yet", "25,323.36", "up-breakout"):
+            self.assertIn(text, html)
+
+    def test_nothing_is_shown_when_there_is_no_rule_table(self):
+        self.assertEqual(dashboard._setup_rules_card(None), "")
+        self.assertEqual(dashboard._setup_rules_card({"checks": []}), "")
+
+    def test_rule_text_is_escaped(self):
+        html = dashboard._setup_rules_card({"side": "BEAR", "checks": [
+            {"rule": "<img src=x>", "ok": False, "value": "<b>", "limit": "&"}]})
+        self.assertNotIn("<img", html)
+        self.assertIn("down-breakout", html)
+
+
 class BacktestTests(NoNetworkTestCase):
     def test_batch_runs_every_fixture_and_enters_nothing_without_answers(self):
         with tempfile.TemporaryDirectory() as d:

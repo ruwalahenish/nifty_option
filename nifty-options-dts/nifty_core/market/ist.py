@@ -21,6 +21,18 @@ def to_ist(moment):
     return moment.astimezone(IST)
 
 
+SLOT_MINUTES = 5
+
+
+def slot_floor(moment, minutes=SLOT_MINUTES):
+    """The decision slot a moment belongs to: the moment rounded down to a whole `minutes` boundary (IST).
+
+    A live poll handles slot 13:30 at 13:30:07 or later, never at exactly 13:30:00. Cut-off times ("no new setup after
+    13:30", "entry window ends 14:30") are rules about SLOTS, so they compare the slot, not the second the poll ran."""
+    m = to_ist(moment)
+    return m.replace(minute=m.minute - m.minute % minutes, second=0, microsecond=0)
+
+
 def parse_ist(text):
     """'YYYY-MM-DD HH:MM' (or with seconds) in IST to an aware datetime."""
     for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d %H:%M:%S"):

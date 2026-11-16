@@ -201,3 +201,18 @@ class ExpiryTests(NoNetworkTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SlotFloorTests(NoNetworkTestCase):
+    def test_a_moment_belongs_to_the_slot_it_falls_in(self):
+        from nifty_core.market import ist
+        t = datetime.datetime(2026, 11, 6, 13, 30, 7, 123, tzinfo=ist.IST)
+        self.assertEqual(ist.slot_floor(t), datetime.datetime(2026, 11, 6, 13, 30, tzinfo=ist.IST))
+        self.assertEqual(ist.slot_floor(t + datetime.timedelta(minutes=4, seconds=50)).minute, 30)
+        self.assertEqual(ist.slot_floor(t + datetime.timedelta(minutes=5)).minute, 35)
+        self.assertEqual(ist.slot_floor(datetime.datetime(2026, 11, 6, 13, 29, 59, tzinfo=ist.IST)).minute, 25)
+
+    def test_a_naive_moment_is_refused(self):
+        from nifty_core.market import ist
+        with self.assertRaises(ValueError):
+            ist.slot_floor(datetime.datetime(2026, 11, 6, 13, 30))

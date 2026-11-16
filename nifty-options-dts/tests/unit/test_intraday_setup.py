@@ -196,5 +196,59 @@ class TodaysRealCandlesTests(NoNetworkTestCase):
             self.assertIsNone(self.at(n).direction)
 
 
+
+
+class SlotCutOffTests(NoNetworkTestCase):
+    """The cut-off is a rule about SLOTS: a poll handles a slot a few seconds after its boundary, never exactly at it."""
+    ROWS = OPENING + [BREAKOUT, PULLBACK, RESUME]                # the last candle ends at 10:00
+
+    def test_the_last_allowed_slot_still_decides_when_the_poll_runs_a_few_seconds_late(self):
+        params = P.build_params(dict(VALUES, latest_setup_ist="10:00"))
+        cs = candles(self.ROWS)
+        self.assertEqual(S.evaluate(cs, end_of(cs), params).direction, S.BULL)
+        self.assertEqual(S.evaluate(cs, end_of(cs) + datetime.timedelta(seconds=7), params).direction, S.BULL)
+
+    def test_the_next_slot_is_too_late(self):
+        params = P.build_params(dict(VALUES, latest_setup_ist="10:00"))
+        cs = candles(self.ROWS)
+        r = S.evaluate(cs, end_of(cs) + datetime.timedelta(minutes=5, seconds=7), params)
+        self.assertEqual(codes(r), ["SETUP_TOO_LATE"])
+
+
+class RuleTableTests(NoNetworkTestCase):
+    """Every decision carries each rule with its value, its limit and whether it passed, so a miss can be explained."""
+
+    @staticmethod
+    def table(result):
+        return {c["rule"]: c for c in result.metrics["rules"]["checks"]}
+
+    def test_a_waiting_setup_lists_what_passed_and_what_it_is_waiting_for(self):
+        t = self.table(run(OPENING + [BREAKOUT]))
+        self.assertTrue(t["breakout_close"]["ok"])
+        self.assertTrue(t["not_extended"]["ok"])
+        self.assertFalse(t["retest"]["ok"])
+        self.assertIn("24,412.20", t["retest"]["limit"])                       # the zone it needs a low inside
+
+    def test_a_passing_setup_has_every_rule_ok(self):
+        r = run(OPENING + [BREAKOUT, PULLBACK, RESUME])
+        self.assertEqual(r.direction, S.BULL)
+        self.assertEqual(r.metrics["rules"]["side"], S.BULL)
+        self.assertEqual(sorted(self.table(r)), ["breakout_age_candles", "breakout_close", "day_average_side",
+                                                 "not_extended", "resumption_candle", "retest"])
+        self.assertTrue(all(c["ok"] for c in r.metrics["rules"]["checks"]))
+
+    def test_a_near_miss_shows_its_distance_to_the_limit(self):
+        chased = (24390, 24490, 24388, 24485)                                   # 0.35% beyond the range high: extended
+        t = self.table(run(OPENING + [chased]))
+        self.assertFalse(t["not_extended"]["ok"])
+        self.assertEqual(t["not_extended"]["limit"], "<= 0.200%")
+        self.assertTrue(t["not_extended"]["value"].endswith("%"))
+
+    def test_no_breakout_yet_is_one_failed_rule(self):
+        r = run(OPENING + [(24380, 24395, 24372, 24390)])
+        self.assertEqual([c["ok"] for c in r.metrics["rules"]["checks"]], [False])
+        self.assertEqual(r.metrics["rules"]["checks"][0]["rule"], "breakout_close")
+
+
 if __name__ == "__main__":
     unittest.main()

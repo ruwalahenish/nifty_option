@@ -90,6 +90,12 @@ class LiveSession(object):
         self._spots = []
         self._open_notes = []
         self._last_now = None
+        self._waiting_slot = None
+
+    @property
+    def last_slot(self):
+        """The newest slot already handled (None before the first)."""
+        return self._last_slot
 
     @property
     def slots(self):
@@ -109,8 +115,11 @@ class LiveSession(object):
         self.note(now, "paper session started (real quotes, simulated fills, %s)" % (
             "AUTOMATIC paper entry and exit" if self.auto_entry else "entries need your yes"))
 
-    def step(self, now, scenario):
-        """Advance to `now` using everything recorded so far. Returns a list of short event strings."""
+    def step(self, now, scenario, slot_gate=None):
+        """Advance to `now` using everything recorded so far. Returns a list of short event strings.
+
+        `slot_gate(slot)`, when given, returns an object with .state (GO, WAIT or SKIP) and .text. WAIT holds the slot
+        (nothing is decided or managed yet; the next poll asks again), SKIP handles the slot without any new entry."""
         if self.finished:
             return []
         now = to_ist(now)
@@ -122,15 +131,25 @@ class LiveSession(object):
         self.runner.expire_pending(now)
         due = [s for s in self._slots if s <= now]
         if due and due[-1] != self._last_slot:
-            self._last_slot = due[-1]
-            status = self.runner.tick(now)
-            if status is not None:
-                regime = (self.runner.last_decision or {}).get("regime", {}).get("label")
-                out.append("decision %s (regime %s)" % (status, regime))
+            slot = due[-1]
+            verdict = slot_gate(slot) if slot_gate is not None else None
+            if verdict is not None and verdict.state == "WAIT":
+                if self._waiting_slot != slot:             # say it once, not every poll
+                    self._waiting_slot = slot
+                    out.append("slot %s: waiting for its final candle (%s)" % (slot.strftime("%H:%M"), verdict.text))
             else:
-                out.append("slot %s: positions managed, no new decision" % due[-1].strftime("%H:%M"))
-            self._journal_marks(now)
-            self._note_exits(now, out)
+                self._last_slot = slot
+                skip = verdict.text if verdict is not None and verdict.state == "SKIP" else None
+                status = self.runner.tick(now, skip_entry_reason=skip)
+                if status == "SLOT_SKIPPED":
+                    out.append("slot %s SKIPPED, no new entry: %s" % (slot.strftime("%H:%M"), skip))
+                elif status is not None:
+                    regime = (self.runner.last_decision or {}).get("regime", {}).get("label")
+                    out.append("decision %s (regime %s)" % (status, regime))
+                else:
+                    out.append("slot %s: positions managed, no new decision" % slot.strftime("%H:%M"))
+                self._journal_marks(now)
+                self._note_exits(now, out)
         for text in out:
             self.note(now, text)
         self._last_now = now
@@ -357,7 +376,7 @@ class LiveSession(object):
                    d.get("strategy", {}).get("reasons")) or d.get("regime", {}).get("reasons") or []
             view["last_decision"] = {"decision_time": d["decision_time"], "status": d.get("status"),
                                      "regime": d["regime"]["label"], "strategy_outcome": d["strategy"]["outcome"],
-                                     "reasons": [r["text"] for r in why][:4]}
+                                     "reasons": [r["text"] for r in why][:4], "setup": d.get("setup")}
         for fp, p in (self.runner.pending or {}).items():
             view["pending_tickets"].append({
                 "fingerprint": fp, "text": p.ticket.text, "decided_at": p.decided_at.isoformat(),
