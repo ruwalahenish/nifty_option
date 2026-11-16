@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "kind": "STRATEGY_ASSUMPTIONS",
+  "description": "ADAPTIVE profile, option-liquidity part: the spread choices (50/100/150 points, 0-2 steps out of the money) and liquidity tolerances (bid-ask 5%, volume 2,000, open interest 10,000) used by every strategy the selector can pick. The per-trade risk limit is unchanged. Still OUR choices, NOT validated on real market data.",
+  "values": {
+    "min_days_to_expiry": 2,
+    "long_strike_offsets_steps": [
+      0,
+      1,
+      2
+    ],
+    "width_points_options": [
+      50,
+      100,
+      150
+    ],
+    "candidate_lots": 1,
+    "max_leg_spread_pct": 5.0,
+    "min_leg_volume": 2000,
+    "min_leg_open_interest": 10000,
+    "min_depth_lots": 1,
+    "max_debit_to_width": 0.65,
+    "max_spot_divergence_pct": 0.25,
+    "block_on_high_impact_event": true
+  }
+}

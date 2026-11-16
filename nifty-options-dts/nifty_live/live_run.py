@@ -423,9 +423,10 @@ def build_parser():
     p = argparse.ArgumentParser(description="Live PAPER trading on read-only Upstox quotes, with a local dashboard. "
                                 "Simulated fills only; nothing is ever sent to a broker.")
     p.add_argument("--config", default=DEFAULT_CONFIG, help="config JSON (live needs data_mode real_readonly)")
-    p.add_argument("--profile", default="intraday", help="entry-rule profile in config/profiles/: intraday (default: "
-                   "opening-range breakout entered on a retest), human (votes on trend, looser), or default (the strict "
-                   "reference thresholds)")
+    p.add_argument("--profile", default="adaptive", help="entry-rule profile in config/profiles/: adaptive (default: the "
+                   "selector reads the market and picks a debit spread, credit spread, iron condor or iron butterfly, or no "
+                   "trade), intraday (one fixed setup: opening-range breakout entered on a retest), human (votes on trend, "
+                   "looser), or default (the strict reference thresholds)")
     p.add_argument("--entry-mode", choices=("auto", "manual"), default="auto",
                    help="auto (default): paper entries and exits are automatic; manual: each entry waits for your yes")
     p.add_argument("--interval", type=int, default=10, help="seconds between live polls (default 10, minimum %d)" %

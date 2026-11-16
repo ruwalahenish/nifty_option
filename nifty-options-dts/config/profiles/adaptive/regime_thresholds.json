@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "kind": "STRATEGY_ASSUMPTIONS",
+  "description": "ADAPTIVE profile, regime part. Used only for the DATA gates and the VOLATILITY brake (stale or missing candles, one 0.8% bar or 0.15% stdev of 5-minute moves): the strategy comes from the selector, which reads the market itself. 6 candles (30 minutes) before anything is classified, so the first possible decision is 09:45. Still OUR choices, NOT validated on real market data.",
+  "values": {
+    "interval_minutes": 5,
+    "min_bars": 6,
+    "max_data_lag_minutes": 10,
+    "net_move_pct": 0.15,
+    "range_position_high": 0.6,
+    "range_position_low": 0.4,
+    "recent_window": 5,
+    "recent_dominance": 3,
+    "structure_window": 6,
+    "votes_required": 3,
+    "sideways_max_range_pct": 0.45,
+    "abnormal_bar_range_pct": 0.8,
+    "high_vol_stdev_pct": 0.15
+  }
+}

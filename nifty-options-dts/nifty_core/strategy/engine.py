@@ -47,6 +47,7 @@ from ..instruments.spread import KIND_BEAR_PUT, KIND_BULL_CALL
 from ..market.calendar_nse import check_config_fits_session
 from ..market.ist import ist_datetime, slot_floor, to_ist
 from ..regime import engine as regime_engine
+from . import structure_candidate
 from .params import params_as_json
 
 CANDIDATE, NO_TRADE = "CANDIDATE", "NO_TRADE"
@@ -78,6 +79,8 @@ def _leg_evidence(quote, price, side):
 
 
 def candidate_to_journal(c):
+    if hasattr(c, "structure"):                          # a credit structure from the adaptive selector
+        return structure_candidate.to_journal(c)
     return {
         "strategy_type": c.strategy_type, "regime_at_entry": c.regime_at_entry,
         "decision_time": c.decision_time.isoformat(), "chain_snapshot_time": c.chain_snapshot_time.isoformat(),

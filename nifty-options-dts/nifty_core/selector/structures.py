@@ -214,17 +214,28 @@ class CreditStructure(object):
         """Capital at risk, comparable to the debit spread's Total Defined Risk: worst-case loss + slippage on every leg
         + entry costs + estimated exit costs (each leg closing at its entry quote, a conservative stand-in).
         Returns (total, parts dict)."""
+        return self.defined_risk_at([l.entry_price for l in self.legs], engine, slippage_points, trade_date)
+
+    def defined_risk_at(self, prices, engine, slippage_points, trade_date=None):
+        """The same figure with each leg priced at `prices` (one quote per leg, in leg order) instead of the entry quotes.
+        The paper executor uses it to re-check the risk at the moment of the fill: fresh quotes may have moved against us.
+        The worst case is (width - credit at these prices) x units, so a thinner credit means a bigger loss."""
+        if len(prices) != len(self.legs):
+            raise SpreadError([("BAD_PRICE", "need one price per leg")])
         day = trade_date or self.trade_date
-        entry, closing, slip = [], [], Decimal(0)
-        for i, l in enumerate(self.legs):
+        entry, closing, slip, credit = [], [], Decimal(0), Decimal(0)
+        for i, (l, px) in enumerate(zip(self.legs, prices)):
+            px = Decimal(px)
             side = COST_BUY if l.is_long else COST_SELL
-            fill = slipped_price(l.entry_price, side, slippage_points, self.tick)
-            slip += abs(fill - l.entry_price) * self.units
+            fill = slipped_price(px, side, slippage_points, self.tick)
+            slip += abs(fill - px) * self.units
+            credit += -px if l.is_long else px
             entry.append(LegExecution("leg%d" % i, side, fill, self.units, day))
-            closing.append(LegExecution("leg%d" % i, COST_SELL if l.is_long else COST_BUY, l.entry_price, self.units, day))
+            closing.append(LegExecution("leg%d" % i, COST_SELL if l.is_long else COST_BUY, px, self.units, day))
         entry_costs, exit_costs = engine.entry_costs(entry), engine.exit_costs(closing)
-        total = self.gross_max_loss_inr + slip + entry_costs.total + exit_costs.total
-        return paise(total), {"max_loss_inr": paise(self.gross_max_loss_inr), "slippage_inr": paise(slip),
+        max_loss = (self.width_points - credit) * self.units
+        total = max_loss + slip + entry_costs.total + exit_costs.total
+        return paise(total), {"max_loss_inr": paise(max_loss), "slippage_inr": paise(slip),
                               "entry_costs_inr": paise(entry_costs.total),
                               "estimated_exit_costs_inr": paise(exit_costs.total)}
 

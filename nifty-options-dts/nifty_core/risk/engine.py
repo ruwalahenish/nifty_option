@@ -34,10 +34,12 @@ from ..contracts import hhmm
 from ..data import validation as data_validation
 from ..errors import (ContractError, CostRateUnverified, KillSwitchActive, RiskViolation)
 from ..guards import paper_only
+from .. import legs as legs_mod
 from ..instruments.coverage import uncovered_shorts
 from ..instruments.spread import KIND_BEAR_PUT, KIND_BULL_CALL, DebitSpread
 from ..market.ist import to_ist
 from ..costs.models import paise
+from ..selector import structures as credit_structures
 from ..strategy import engine as strategy_engine
 from . import ledger as ledger_mod
 
@@ -90,8 +92,30 @@ def effective_max_lots(cfg):
     return min(cfg.max_lots, HARD_MAX_LOTS)
 
 
+def _consistency_structure(c):
+    """The same integrity check for a credit structure candidate."""
+    s = getattr(c, "structure", None)
+    if not isinstance(s, credit_structures.CreditStructure):
+        return [("CANDIDATE_INVALID", "the candidate carries no validated CreditStructure")]
+    out = []
+
+    def check(ok, what):
+        if not ok:
+            out.append(("CANDIDATE_INCONSISTENT", what))
+    check(c.lots == s.lots and c.lot_size == s.lot_size, "lots or lot size differ from the structure")
+    check(c.net_credit_points == s.net_credit_points and c.width_points == s.width_points,
+          "net credit or width differ from the structure")
+    check(c.net_credit_inr == s.net_credit_points * s.units, "net credit in rupees differs from the structure")
+    check(c.strategy_type == s.kind and c.strategy_type in credit_structures.KINDS,
+          "strategy type differs from the structure")
+    check(c.expiry == s.expiry, "expiry differs from the structure")
+    return out
+
+
 def _consistency(c):
     """Problems (code, text) if the candidate's summary fields disagree with its own validated spread."""
+    if legs_mod.is_structure_candidate(c):
+        return _consistency_structure(c)
     s = getattr(c, "spread", None)
     if not isinstance(s, DebitSpread):
         return [("CANDIDATE_INVALID", "the candidate carries no validated DebitSpread")]
@@ -113,8 +137,27 @@ def _consistency(c):
     return out
 
 
+def _structure_credit(c):
+    """Independent re-check of a credit structure's shape: the right number of legs, one expiry and quantity, and every
+    short covered by a long wing further out of the money (so the loss is capped at the wing width)."""
+    legs = c.structure.legs
+    out = []
+    if len(legs) != credit_structures._LEGS.get(c.structure.kind):
+        out.append(("STRUCTURE_INVALID", "%s needs %s legs, got %d" % (
+            c.structure.kind, credit_structures._LEGS.get(c.structure.kind), len(legs))))
+    if len({(l.underlying, l.expiry, l.units) for l in legs}) != 1:
+        out.append(("STRUCTURE_INVALID", "legs must share underlying, expiry and quantity"))
+    if not any(l.is_long for l in legs) or all(l.is_long for l in legs):
+        out.append(("STRUCTURE_INVALID", "a credit structure needs both long and short legs"))
+    for leg, units in credit_structures.uncovered_by_wings(legs):
+        out.append(("NAKED_SHORT", "short %s would be uncovered for %d units" % (leg.contract.symbol, units)))
+    return out
+
+
 def _structure(c):
     """Independent re-check of the shape: one long, one covered short, same type/expiry/units."""
+    if legs_mod.is_structure_candidate(c):
+        return _structure_credit(c)
     s = c.spread
     long_leg, short_leg = s.long_leg, s.short_leg
     out = []
@@ -129,8 +172,32 @@ def _structure(c):
 
 
 # ---- calculation -----------------------------------------------------------------------------------------------
+def _calculate_credit(candidate, cfg, cost_engine, day):
+    """Defined-risk figures for a credit structure, under the same keys as the debit spread's (a credit is a negative
+    debit). Worst case = (width - credit) x units + slippage + entry costs + estimated exit costs."""
+    s = candidate.structure
+    total, parts = s.defined_risk_inr(cost_engine, cfg.slippage_points_per_leg, day)
+    quoted = -(s.net_credit_points * s.units)
+    entry_risk = total - parts["estimated_exit_costs_inr"]
+    return {
+        "formula": "total_defined_risk = max_loss (width - credit) + entry_slippage + entry_costs + estimated_exit_costs",
+        "net_debit_quoted_inr": quoted, "net_credit_quoted_inr": s.net_credit_points * s.units,
+        "max_loss_inr": parts["max_loss_inr"],
+        "slippage_points_per_leg": cfg.slippage_points_per_leg,
+        "entry_slippage_inr": parts["slippage_inr"],
+        "net_debit_paid_inr": quoted + parts["slippage_inr"],
+        "entry_costs_inr": parts["entry_costs_inr"], "entry_cost_components": {},
+        "estimated_exit_costs_inr": parts["estimated_exit_costs_inr"], "exit_cost_components": {},
+        "exit_estimate_method": "entry_price",
+        "round_trip_costs_inr": parts["entry_costs_inr"] + parts["estimated_exit_costs_inr"],
+        "entry_risk_inr": entry_risk, "total_defined_risk_inr": total, "stop_loss_used": False, "warnings": [],
+    }
+
+
 def calculate(candidate, cfg, cost_engine, day):
     """The defined-risk figures as a dict of Decimals (and text), or raises a cost/contract error."""
+    if legs_mod.is_structure_candidate(candidate):
+        return _calculate_credit(candidate, cfg, cost_engine, day)
     dr = candidate.spread.defined_risk(cost_engine, cfg.slippage_points_per_leg, trade_date=day)
     return {
         "formula": "total_defined_risk = net_debit_quoted + entry_slippage + entry_costs + estimated_exit_costs",
@@ -181,7 +248,7 @@ def evaluate(candidate, ledger, now, cfg, cost_engine, specs, calendar, kill_dir
     def block(code, text):
         reasons.append(Reason(code, text))
 
-    cid = candidate_fingerprint(candidate) if hasattr(candidate, "spread") else "invalid"
+    cid = candidate_fingerprint(candidate) if legs_mod.is_candidate(candidate) else "invalid"
     limits = {
         "account_capital_inr": str(cfg.account_capital_inr),
         "risk_per_trade_inr": str(cfg.risk_per_trade_inr), "max_daily_loss_inr": str(cfg.max_daily_loss_inr),
@@ -236,7 +303,7 @@ def evaluate(candidate, ledger, now, cfg, cost_engine, specs, calendar, kill_dir
             candidate.data_mode, cfg.data_mode))
     if cfg.data_mode != "fixture" and candidate.data_label == "FIXTURE_SYNTHETIC":
         block("DATA_UNVERIFIED", "synthetic data cannot be approved when data_mode=%r" % cfg.data_mode)
-    spread = candidate.spread
+    spread = legs_mod.structure_of(candidate)
     try:
         layer_lot = specs.lot_size(spread.expiry, cfg.data_mode).value
         if layer_lot != spread.lot_size:
@@ -245,7 +312,7 @@ def evaluate(candidate, ledger, now, cfg, cost_engine, specs, calendar, kill_dir
     except ContractError as e:
         block("LOT_SIZE_UNVERIFIED", str(e))
     try:
-        for leg in (spread.long_leg, spread.short_leg):
+        for leg in legs_mod.legs_of(candidate):
             if data_validation.contract_expired(leg.contract, now, calendar):
                 block("EXPIRED_CONTRACT", "%s cannot be opened at %s" % (leg.contract.symbol, now.isoformat()))
     except ContractError as e:
@@ -289,11 +356,12 @@ def evaluate(candidate, ledger, now, cfg, cost_engine, specs, calendar, kill_dir
                 before.capital_committed_inr, committed, cfg.account_capital_inr))
 
     # no bypass: averaging, re-use, splitting, recovery trades
-    mine = {spread.long_leg.contract.symbol, spread.short_leg.contract.symbol}
+    mine = legs_mod.symbols(candidate)
     for p in ledger.open_positions():
-        if mine & {p.long_symbol, p.short_symbol}:
+        held = legs_mod.split_symbols(p.long_symbol, p.short_symbol)
+        if mine & held:
             block("AVERAGING_BLOCKED", "an open position already holds %s: adding to it is averaging" % (
-                ", ".join(sorted(mine & {p.long_symbol, p.short_symbol}))))
+                ", ".join(sorted(mine & held))))
     if cid in ledger.candidate_ids():
         block("CANDIDATE_ALREADY_USED", "this exact candidate was already approved today: no splitting or repeating")
     last_loss = ledger.last_loss()
@@ -308,8 +376,9 @@ def evaluate(candidate, ledger, now, cfg, cost_engine, specs, calendar, kill_dir
         return finish(calc)
 
     approval_id = _digest((cid, now.isoformat(), fps["config"], before.trades_today))
-    parts = Approval(approval_id, cid, candidate.strategy_type, spread.long_leg.contract.symbol,
-                     spread.short_leg.contract.symbol, candidate.lots, risk, committed, now, fps["config"], "")
+    long_symbol, short_symbol = legs_mod.symbol_fields(candidate)
+    parts = Approval(approval_id, cid, candidate.strategy_type, long_symbol, short_symbol, candidate.lots, risk,
+                     committed, now, fps["config"], "")
     approval = parts._replace(digest=_digest(_approval_parts(parts)))
     after = ledger.with_opened(approval, now).snapshot(cfg.max_daily_loss_inr)
     return RiskDecision(APPROVED, cid, now, (), calc, limits, before, after, before.trades_today, after.trades_today,

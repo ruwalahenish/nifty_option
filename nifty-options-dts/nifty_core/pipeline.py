@@ -2,6 +2,12 @@
 
     data -> regime -> strategy -> risk -> TICKET -> human "yes" -> paper entry -> position management -> journal
 
+The strategy step is one of two engines, chosen by the profile. The opening-range profile ("intraday") proposes a bull
+call or bear put debit spread from one fixed setup. The adaptive profile ("adaptive") reads the market and lets the
+selector pick one of four strategies (debit spread, credit spread, iron condor, iron butterfly) or no trade; its pick
+must repeat for `entry_confirmations` consecutive slots before it goes to the risk gate. Everything after the strategy
+step (risk gate, ticket, paper entry, position management, journal) is the same for every strategy.
+
 Every tick is journaled where something was decided: NO TRADE and BLOCKED are journaled like trades. Without a
 recorded "yes" for the exact ticket nothing is entered (AWAITING_APPROVAL). The replay applies the supplied answer at the
 decision timestamp; the live session (nifty_core.live_session) keeps an unanswered ticket waiting for a short time and
@@ -31,6 +37,10 @@ from .positions import manager as manager_mod
 from .positions import params as position_params
 from .regime import params as regime_params
 from .risk import engine as risk_engine
+from .selector import engine as selector_engine
+from .selector import exits as selector_exits
+from .selector import params as selector_params_mod
+from . import legs as legs_mod
 from .risk import ledger as ledger_mod
 from .strategy import engine as strategy_engine
 from .strategy import params as strategy_params
@@ -38,8 +48,8 @@ from .versioned import ROOT
 
 TICK_MINUTES = 5
 Context = namedtuple("Context", (
-    "cfg specs calendar cost_engine strategy_params regime_params position_params data_mode setup_params"),
-    defaults=(None,))
+    "cfg specs calendar cost_engine strategy_params regime_params position_params data_mode setup_params "
+    "selector_params"), defaults=(None, None))
 DaySummary = namedtuple("DaySummary", (
     "day status_counts entries exits criticals net_pnl_inr tickets_awaiting final_ledger journal_path"))
 AUTO_REPLY = "(automatic paper entry: no human reply)"
@@ -71,14 +81,26 @@ def load_context(cfg, data_mode="fixture", profile=None):
     specs = ContractSpecs.load()
     setup_file = profile_file(profile, "setup_thresholds.json", required=False)      # only some profiles have one
     setup = intraday_params.load_params(setup_file) if setup_file else None
+    selector_file = profile_file(profile, "selector_thresholds.json", required=False)     # only the adaptive profile
+    selector = selector_params_mod.load_params(selector_file) if selector_file else None
     return Context(cfg, specs, NseCalendar.load(specs=specs, data_mode=data_mode), load_cost_engine(data_mode=data_mode),
                    strategy_params.load_params(profile_file(profile, "strategy_thresholds.json")),
                    regime_params.load_params(profile_file(profile, "regime_thresholds.json")),
-                   position_params.load_params(), data_mode, setup)
+                   position_params.load_params(), data_mode, setup, selector)
 
 
 def _reason_list(reasons):
     return [{"code": r.code, "text": r.text} for r in reasons]
+
+
+def _selector_inputs_hash(provider, sel, ctx):
+    scenario = getattr(getattr(provider, "scenario", None), "name", "provider")
+    cand = sel.candidate
+    blob = {"scenario": scenario, "as_of": sel.as_of.isoformat(),
+            "chain_snapshot": cand.chain_snapshot_time.isoformat() if cand is not None else None,
+            "selected": sel.selected, "regime_fp": ctx.regime_params.fingerprint,
+            "strategy_fp": ctx.strategy_params.fingerprint, "selector_fp": ctx.selector_params.fingerprint}
+    return hashlib.sha256(json.dumps(blob, sort_keys=True).encode("utf-8")).hexdigest()
 
 
 def _inputs_hash(provider, decision, ctx):
@@ -104,6 +126,18 @@ def tick_times(ctx, day):
         out.append(t)
         t += datetime.timedelta(minutes=TICK_MINUTES)
     return out
+
+
+def _selector_summary(sel):
+    """The selector's reading of the market and how each of the four strategies was judged, for the journal and the
+    dashboard: every required condition with its pass / fail and detail."""
+    a = sel.analysis
+    return {"market": a.summary if a is not None else None, "selected": sel.selected, "confidence": sel.confidence,
+            "selected_title": selector_engine.TITLES[sel.selected] if sel.selected else None,
+            "evaluations": [{"strategy": selector_engine.TITLES[e.strategy], "eligible": e.eligible,
+                             "confidence": e.confidence,
+                             "conditions": [{"name": c.name, "passed": c.passed, "required": c.required, "detail": c.detail}
+                                            for c in e.conditions]} for e in sel.evaluations]}
 
 
 def _label(provider):
@@ -148,8 +182,9 @@ def restore_trades(journal, day):
         legs = [{"contract": l["contract"], "side": l["side"], "units": l["units"], "entry": l["fill_price"]}
                 for l in p["legs"]]
         trade = {"position_id": pid, "approval_id": p["approval_id"], "candidate_id": p["candidate_id"],
-                 "long": next(l["contract"] for l in p["legs"] if l["side"] == "BUY"),
-                 "short": next(l["contract"] for l in p["legs"] if l["side"] == "SELL"), "lots": p["legs"][0]["lots"],
+                 "long": "+".join(sorted(l["contract"] for l in p["legs"] if l["side"] == "BUY")),
+                 "short": "+".join(sorted(l["contract"] for l in p["legs"] if l["side"] == "SELL")),
+                 "lots": p["legs"][0]["lots"],
                  "opened_at": p["executed_at"], "legs": legs}
         if pid in exits:
             x = exits[pid]
@@ -181,6 +216,8 @@ class DayRunner(object):
                  restore=False):
         paper_only.assert_paper_only(ctx.cfg)
         self.provider, self.day, self.ctx, self.journal = provider, day, ctx, journal
+        self.kill_dir = kill_dir
+        self._pick, self._pick_count = None, 0        # adaptive: the strategy picked at the last slots, and for how many in a row
         self.answers = dict(answers or {})
         self.ticks = tick_times(ctx, day)
         if not self.ticks:
@@ -196,8 +233,14 @@ class DayRunner(object):
         self.mgr = risk_engine.RiskManager(cfg, ctx.cost_engine, ctx.specs, ctx.calendar, kill_dir, day)
         self.ex = paper_mod.PaperExecutor(cfg, ctx.cost_engine, ctx.specs, ctx.calendar, self.mgr, provider)
         setup_exit = None
-        if ctx.setup_params is not None:
-            def setup_exit(now, entry_label):
+        if ctx.selector_params is not None:
+            def setup_exit(now, entry_label, candidate=None):
+                if candidate is None:
+                    return None
+                return selector_exits.early_exit_at(provider, ctx.calendar, ctx.regime_params, ctx.selector_params, now,
+                                                    candidate)
+        elif ctx.setup_params is not None:
+            def setup_exit(now, entry_label, candidate=None):
                 return strategy_engine.setup_has_failed(provider, ctx.calendar, ctx.regime_params, ctx.setup_params,
                                                         now, entry_label)
         self.pm = manager_mod.PositionManager(cfg, ctx.position_params, self.ex, self.mgr, provider, ctx.calendar,
@@ -219,6 +262,8 @@ class DayRunner(object):
             "scenario": getattr(getattr(self.provider, "scenario", None), "name", None)}
         if ctx.setup_params is not None:
             payload["intraday_setup_thresholds"] = ctx.setup_params.fingerprint
+        if ctx.selector_params is not None:
+            payload["selector_thresholds"] = ctx.selector_params.fingerprint
         if self._carried:
             payload["restored_trades"] = [{"position_id": t["position_id"], "closed_in_earlier_run": t["closed"]}
                                           for t in self._carried]
@@ -272,6 +317,7 @@ class DayRunner(object):
                                                   "realized_loss_used_inr": str(snap.realized_loss_used_inr)})
             return None
         if skip_entry_reason is not None:
+            self._pick, self._pick_count = None, 0                  # a slot without a verdict breaks the confirmation run
             journal.append("DECISION", t, {"decision_time": t.isoformat(), "status": "SLOT_SKIPPED",
                                             "reason": skip_entry_reason, "regime": {"label": "NOT_EVALUATED"}})
             self.status_counts["SLOT_SKIPPED"] += 1
@@ -363,6 +409,8 @@ class DayRunner(object):
         return "ENTERED"
 
     def _decide(self, t):
+        if self.ctx.selector_params is not None:
+            return self._decide_adaptive(t)
         ctx, mgr, pm, journal, provider = self.ctx, self.mgr, self.pm, self.journal, self.provider
         d = strategy_engine.decide_at(provider, ctx.calendar, ctx.specs, ctx.cfg, ctx.strategy_params,
                                       ctx.regime_params, t, ctx.data_mode, _label(provider), ctx.setup_params)
@@ -381,16 +429,62 @@ class DayRunner(object):
             record["status"] = "NO_TRADE"
             journal.append("DECISION", t, record)
             return "NO_TRADE"
-        # Offer the candidates to the risk gate in rank order and take the first one that fits the limits. If none
-        # fits, the best-ranked one is the one reported as blocked. Blocked offers reserve nothing.
         offered = (d.candidate,) + tuple(d.alternates)
+        return self._risk_and_enter(offered, record, t, d.regime.label)
+
+    def _decide_adaptive(self, t):
+        """The selector reads the market and picks one of four strategies, or none. A pick is only offered to the risk gate
+        once it has been the pick at `entry_confirmations` consecutive slots, so a one-slot flicker never trades."""
+        ctx, journal, provider = self.ctx, self.journal, self.provider
+        p = ctx.selector_params
+        sel = selector_engine.select_at(provider, ctx, p, t, False, self.kill_dir, _label(provider))
+        analysis = sel.analysis
+        record = {"decision_time": t.isoformat(), "inputs_hash": _selector_inputs_hash(provider, sel, ctx),
+                  "regime": {"label": analysis.structure if analysis is not None else (sel.regime_label or "UNKNOWN"),
+                             "evidence_score": None, "bull_votes": None, "bear_votes": None, "reasons": [],
+                             "thresholds_fingerprint": ctx.regime_params.fingerprint},
+                  "strategy": {"outcome": "CANDIDATE" if sel.outcome == selector_engine.TRADE else "NO_TRADE",
+                               "reasons": _reason_list(sel.reasons), "candidates_tested": len(selector_engine.STRATEGIES),
+                               "thresholds_fingerprint": p.fingerprint},
+                  "selector": _selector_summary(sel)}
+        self.last_decision = record
+        if sel.outcome != selector_engine.TRADE:
+            self._pick, self._pick_count = None, 0
+            record["status"] = "NO_TRADE"
+            journal.append("DECISION", t, record)
+            return "NO_TRADE"
+        cand = sel.candidate
+        kind = cand.strategy_type
+        self._pick_count = self._pick_count + 1 if kind == self._pick else 1
+        self._pick = kind
+        if self._pick_count < p.entry_confirmations:
+            record["strategy"]["outcome"] = "NO_TRADE"
+            record["strategy"]["reasons"] = [{"code": "AWAITING_CONFIRMATION", "text": (
+                "%s is the pick (confidence %d) but needs the same pick at %d consecutive slots before entry (%d so far): "
+                "a one-slot flicker is not traded" % (selector_engine.KIND_TITLES[kind], sel.confidence,
+                                                      p.entry_confirmations, self._pick_count))}]
+            record["selector"]["awaiting_confirmation"] = {"strategy": kind, "have": self._pick_count,
+                                                           "need": p.entry_confirmations}
+            record["status"] = "NO_TRADE"
+            journal.append("DECISION", t, record)
+            return "NO_TRADE"
+        status = self._risk_and_enter((cand,), record, t, cand.regime_at_entry["label"])
+        if status == "ENTERED":
+            self._pick, self._pick_count = None, 0
+        return status
+
+    def _risk_and_enter(self, offered, record, t, regime_label):
+        """Offer the candidates to the risk gate in rank order and take the first one that fits. If none fits, the
+        best-ranked one is the one reported as blocked. Blocked offers reserve nothing. Then ticket and entry."""
+        mgr, journal = self.mgr, self.journal
         cand, rd, blocked_first = None, None, []
         for option in offered:
             attempt = mgr.request_entry(option, t)
             if attempt.outcome == risk_engine.APPROVED:
                 cand, rd = option, attempt
                 break
-            blocked_first.append({"long": option.long_contract.symbol, "short": option.short_contract.symbol,
+            long_symbol, short_symbol = legs_mod.symbol_fields(option)
+            blocked_first.append({"long": long_symbol, "short": short_symbol,
                                   "reason_codes": [r.code for r in attempt.reasons]})
             if rd is None:
                 cand, rd = option, attempt
@@ -423,7 +517,7 @@ class DayRunner(object):
             if self.pending is None:
                 _release(mgr, rd.approval)
             else:                       # live: keep the reservation until a reply, expiry or the next decision time
-                self.pending[ticket.fingerprint] = PendingTicket(ticket, rd.approval, cand, d.regime.label, t)
+                self.pending[ticket.fingerprint] = PendingTicket(ticket, rd.approval, cand, regime_label, t)
             record["status"] = "AWAITING_APPROVAL"
             record["ticket_fingerprint"] = ticket.fingerprint
             journal.append("DECISION", t, record)

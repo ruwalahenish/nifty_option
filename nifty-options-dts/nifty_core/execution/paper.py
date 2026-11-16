@@ -1,4 +1,5 @@
-"""Paper execution: SIMULATED fills for an approved debit spread. Nothing here can reach a market.
+"""Paper execution: SIMULATED fills for an approved defined-risk structure (a debit spread, a credit spread, an iron
+condor or an iron butterfly). Nothing here can reach a market.
 
 There is no broker, no network, no credential and no order interface in this module. It reads quotes through the
 read-only MarketDataProvider and records what a conservative simulation says would have happened.
@@ -12,8 +13,8 @@ FILL RULES (adverse slippage is cfg.slippage_points_per_leg, applied to every le
 
 NO INVENTED FILLS
     A missing, future, stale, invalid, one-sided or off-tick quote, an expired contract, or a quoted size smaller than
-    the order gives a PENDING result with the reasons. Both legs fill together or not at all: there are no partial
-    fills and no single-leg positions.
+    the order gives a PENDING result with the reasons. All legs fill together or not at all: there are no partial
+    fills and no single-leg positions (for a condor or butterfly that means all four legs).
 
 APPROVAL AND INTEGRITY (entry)
     Accepts only a valid, unused P7 approval for the identical candidate and the approved lots. A tampered approval,
@@ -39,6 +40,7 @@ from ..costs.engine import QuotedLeg, slipped_price
 from ..costs.models import BUY, SELL, LegExecution, paise
 from ..data import validation as data_validation
 from ..errors import (ContractError, CostRateUnverified, DataNotAvailable, KillSwitchActive, RiskViolation)
+from .. import legs as legs_mod
 from ..guards import paper_only
 from ..market.ist import slot_floor, to_ist
 from ..risk import engine as risk_engine
@@ -188,9 +190,9 @@ class PaperExecutor(object):
     def _finish(self, status, kind, now, approval, candidate, reasons, fills=(), actual=None, estimated=None, eid=None):
         r = ExecutionResult(
             status, kind, eid, getattr(approval, "approval_id", None),
-            risk_engine.candidate_fingerprint(candidate) if hasattr(candidate, "spread") else None,
+            risk_engine.candidate_fingerprint(candidate) if legs_mod.is_candidate(candidate) else None,
             getattr(candidate, "decision_time", None), getattr(approval, "approved_at", None), now, tuple(reasons),
-            tuple(fills), actual or {}, estimated or {}, self._fingerprints(candidate) if hasattr(candidate, "spread")
+            tuple(fills), actual or {}, estimated or {}, self._fingerprints(candidate) if legs_mod.is_candidate(candidate)
             else {}, NOTE)
         self._log.append(r)
         return r
@@ -231,8 +233,7 @@ class PaperExecutor(object):
             return fin(REJECTED, problems)
 
         # 3 quotes for both legs, or nothing
-        s = candidate.spread
-        legs = [("long", s.long_leg.contract, BUY, s.lots, s.units), ("short", s.short_leg.contract, SELL, s.lots, s.units)]
+        legs = legs_mod.leg_plan(candidate)
         fills, problems = self._price_legs(legs, now)
         if problems:
             return fin(PENDING, problems)
@@ -241,20 +242,17 @@ class PaperExecutor(object):
             estimated = self._estimate(candidate, day)
             tick = Decimal(str(self._specs.tick_size(day, self._cfg.data_mode).value))
             # the fills must stay inside the approved Total Defined Risk (fresh quotes may have moved against us)
-            fresh = self._costs.defined_risk(
-                [QuotedLeg("long", BUY, fills[0].reference_price, s.units),
-                 QuotedLeg("short", SELL, fills[1].reference_price, s.units)],
-                self._cfg.slippage_points_per_leg, day, tick)
+            fresh_total = self._fresh_total_risk(candidate, fills, day, tick)
             actual_entry = self._costs.actual_costs([
                 LegExecution(f.leg_id, f.side, f.fill_price, f.units, day) for f in fills])
         except CostRateUnverified as e:
             return fin(PENDING, [Reason("COST_RATES_UNVERIFIED", str(e))])
         except ContractError as e:
             return fin(PENDING, [Reason("COSTS_UNAVAILABLE", str(e))])
-        if fresh.total_defined_risk_inr > approval.defined_risk_inr:
+        if fresh_total > approval.defined_risk_inr:
             return fin(PENDING, [Reason(
                 "FILL_EXCEEDS_APPROVED_RISK", "at the current quotes the defined risk is %s, above the approved %s: "
-                "no fill is made" % (fresh.total_defined_risk_inr, approval.defined_risk_inr))],
+                "no fill is made" % (fresh_total, approval.defined_risk_inr))],
                 estimated=estimated)
 
         # 4 commit: use the approval up, record the position
@@ -264,20 +262,35 @@ class PaperExecutor(object):
         actual = {"label": "ACTUAL simulated fills and costs", "net_debit_paid_inr": str(paise(paid)),
                   "entry_costs": _costs_json(actual_entry),
                   "entry_cash_outlay_inr": str(paise(paid + actual_entry.total)),
-                  "defined_risk_at_fill_inr": str(fresh.total_defined_risk_inr)}
+                  "defined_risk_at_fill_inr": str(fresh_total)}
         pos = PaperPosition(eid, approval, candidate, risk_engine.candidate_fingerprint(candidate), lots, now, fills,
                             actual_entry, OPEN, None, (), None, None, None)
         self._positions[eid] = pos
         return fin(FILLED, [], fills=fills, actual=actual, estimated=estimated, eid=eid)
+
+    def _fresh_total_risk(self, candidate, fills, day, tick):
+        """Total defined risk re-computed at the quotes of the moment of the fill (every leg at its reference price)."""
+        if legs_mod.is_structure_candidate(candidate):
+            return candidate.structure.defined_risk_at([f.reference_price for f in fills],
+                                                       self._costs, self._cfg.slippage_points_per_leg, day)[0]
+        s = candidate.spread
+        return self._costs.defined_risk(
+            [QuotedLeg("long", BUY, fills[0].reference_price, s.units),
+             QuotedLeg("short", SELL, fills[1].reference_price, s.units)],
+            self._cfg.slippage_points_per_leg, day, tick).total_defined_risk_inr
+
+    @staticmethod
+    def _closing_plan(candidate):
+        """The entry legs reversed: what closing the whole structure means (sell what was bought, buy back what was sold)."""
+        return [(leg_id, contract, SELL if side == BUY else BUY, lots, units)
+                for leg_id, contract, side, lots, units in legs_mod.leg_plan(candidate)]
 
     def preview_exit(self, execution_id, now):
         """What an exit at `now` would fill at, WITHOUT recording anything: (fills, problems). Used to mark positions."""
         pos = self._positions.get(execution_id)
         if pos is None or pos.state != OPEN:
             return (), [Reason("NOT_OPEN", "no open paper position %s" % str(execution_id)[:12])]
-        s = pos.candidate.spread
-        legs = [("long", s.long_leg.contract, SELL, s.lots, s.units), ("short", s.short_leg.contract, BUY, s.lots, s.units)]
-        return self._price_legs(legs, to_ist(now))
+        return self._price_legs(self._closing_plan(pos.candidate), to_ist(now))
 
     def record_rejection(self, kind, now, approval, candidate, reasons):
         """Log a refusal made by a layer above (for example the position manager)."""
@@ -304,9 +317,7 @@ class PaperExecutor(object):
         if now.date() != pos.entry_time.date():
             return fin(REJECTED, [Reason("EXIT_ON_ANOTHER_DAY", "positions are intraday only; this one should have "
                                          "been closed on %s" % pos.entry_time.date())])
-        s = cand.spread
-        legs = [("long", s.long_leg.contract, SELL, s.lots, s.units), ("short", s.short_leg.contract, BUY, s.lots, s.units)]
-        fills, problems = self._price_legs(legs, now)
+        fills, problems = self._price_legs(self._closing_plan(cand), now)
         if problems:
             return fin(PENDING, problems)
         day = now.date()
@@ -314,11 +325,7 @@ class PaperExecutor(object):
             actual_exit = self._costs.actual_costs([LegExecution(f.leg_id, f.side, f.fill_price, f.units, day) for f in fills])
         except (CostRateUnverified, ContractError) as e:
             return fin(PENDING, [Reason("COSTS_UNAVAILABLE", str(e))])
-        entry_by_leg = {f.leg_id: f for f in pos.entry_fills}
-        exit_by_leg = {f.leg_id: f for f in fills}
-        gross = ((exit_by_leg["long"].fill_price - entry_by_leg["long"].fill_price)
-                 + (entry_by_leg["short"].fill_price - exit_by_leg["short"].fill_price)) * s.units
-        gross = paise(gross)
+        gross = paise(legs_mod.gross_pnl(cand, pos.entry_fills, fills))
         entry_costs = paise(pos.actual_entry_costs.total)
         net = paise(gross - entry_costs - actual_exit.total)
         closed = pos._replace(state=CLOSED, exit_time=now, exit_fills=fills, actual_exit_costs=actual_exit,

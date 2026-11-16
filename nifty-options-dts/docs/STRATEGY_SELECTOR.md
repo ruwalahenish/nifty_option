@@ -87,14 +87,50 @@ The V1 debit-spread model treats a credit spread's short leg as uncovered, so cr
 long put at a **lower** strike, same expiry, at least the same quantity, equal wings, and a net credit below the width. The
 loss is then capped at width - credit. Nothing else changes: the debit-spread model, risk engine and paper execution are as before.
 
+## 7. Live paper trading: the `adaptive` profile
+
+The selector now decides live. `python -m nifty_live.live_run` defaults to `--profile adaptive` (`config/profiles/adaptive/`),
+and `run-day --profile adaptive` replays it on a recorded or fixture day. The opening-range breakout is still available as
+`--profile intraday` (see [INTRADAY_PLAYBOOK.md](INTRADAY_PLAYBOOK.md)); it is no longer the default and no longer decides entries
+in the adaptive profile.
+
+```
+data -> selector (4 strategies or NO TRADE) -> same pick at N slots -> risk gate -> ticket -> paper entry -> management -> journal
+```
+
+- **One decision per 5-minute slot**, on a final candle (see the candle guard in `nifty_live/candle_guard.py`).
+- **Confirmation.** A pick is only offered to the risk gate once it has been the pick at `entry_confirmations` consecutive slots
+  (2 by default, in `config/profiles/adaptive/selector_thresholds.json`; 1 enters on the first pick). A pick that flickers on and off
+  never trades. A slot skipped for want of a final candle breaks the run.
+- **Every strategy goes through the same gates**: the per-trade risk limit (INR 2,500), the daily loss limit, 2 trades a day, one open
+  position at a time, no averaging, the kill file, fresh two-sided liquid quotes, and flat by 15:15. The risk gate re-derives the
+  worst case itself, from the structure's legs, and refuses a structure whose shorts are not each covered by a long wing.
+- **Multi-leg paper execution.** A condor or butterfly is filled as four legs together or not at all (no single-leg positions), each at
+  the adverse side of its quote plus slippage; the fills are re-checked against the approved worst case at the moment of the fill.
+  Costs are charged leg by leg. The exit closes all legs together the other way.
+- **Exits are fixed before entry.** Every candidate carries its target, its stop and the price level that invalidates it, and the
+  journal records them with the entry.
+
+| Structure | Profit target | Stop | Exits early when a 5-minute candle closes ... |
+|---|---|---|---|
+| bull call / bear put debit spread | +60% of the defined risk (net) | -50% of the defined risk (net) | back through the day average |
+| bull put credit spread | 50% of the credit captured (gross) | the credit lost, but at most 60% of the worst case (gross) | below the short put / support |
+| bear call credit spread | same | same | above the short call / resistance |
+| iron condor / iron butterfly | same | same | outside the day's range it was sold inside, or within one strike interval of a short strike |
+
+All of these also close on abnormal volatility, an opposite regime (directional trades), three bad-data checks and the flat-by time.
+
+- **Margin is not modelled.** A credit structure's "capital committed" is its worst-case loss plus costs, a stand-in for the margin a
+  broker would block.
+- **Not validated.** The thresholds are still guesses and the strategies have not been shown to make money. The two recorded real days
+  are far too few to say anything about profit. Judge it by net P&L per trade after
+  costs over many sessions, and keep the 30-trade rule in mind.
+
 ## What this does not do
 
-- It is **not wired into `run-day` or the live paper runner**. The risk engine, paper execution and position manager still only
-  handle debit spreads; credit structures would need their own entry, mark-to-market and exit handling there. Today the
-  selector is a decision and explanation tool.
 - Expiry-payoff figures (max profit / loss, breakevens) describe the shape; the trade is closed the same day, so real P&L depends
   on the exit prices.
 - The index has no volume, so there is no volume confirmation. There is no implied-volatility model: "rich" and "cheap" premium are
   inferred from realised movement.
 - The thresholds are guesses until measured. On the six synthetic fixtures the selector picks a debit spread, an iron condor or
-  NO TRADE; the credit spread and butterfly are exercised with constructed candle paths in the tests. None of this shows a profit.
+  NO TRADE; the credit spread and butterfly are exercised with constructed candle paths in the tests. None of this shows a profit. Credit structures are now traded by the adaptive live profile; the same caveat applies.

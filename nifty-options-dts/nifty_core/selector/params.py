@@ -11,7 +11,7 @@ from ..versioned import ROOT, load_json
 
 DEFAULT_PATH = os.path.join(ROOT, "config", "selector_thresholds.json")
 
-INT_FIELDS = ("min_candles", "momentum_window", "min_confidence")
+INT_FIELDS = ("min_candles", "momentum_window", "min_confidence", "entry_confirmations")
 NUMBER_FIELDS = (
     "trend_net_move_pct", "strong_net_move_pct", "trend_efficiency_min", "strong_efficiency_min",
     "range_efficiency_max", "range_net_move_max_pct", "range_day_range_max_pct", "fly_efficiency_max",
@@ -35,6 +35,8 @@ def build_params(values):
     if unknown or missing:
         raise ConfigError("selector thresholds: unknown %s, missing %s" % (unknown, missing))
     clean = {}
+    if _whole(values.get("entry_confirmations")) and values["entry_confirmations"] > 5:
+        raise ConfigError("entry_confirmations must be between 1 and 5 slots, got %r" % values["entry_confirmations"])
     for name in INT_FIELDS:
         v = values[name]
         if not _whole(v) or v < 1 or (name == "min_confidence" and v > 100):

@@ -1,7 +1,8 @@
 """Version 1 position manager: HOLD or CLOSE. Nothing else.
 
 There is no way here to add lots, average, roll a strike, add a leg or run a rescue trade: the manager has no such
-operation, and a position can only be closed as the same two contracts and lots it was opened with.
+operation, and a position can only be closed as the same contracts and lots it was opened with (two legs for a spread,
+four for an iron condor or butterfly).
 
 STATES
     OPEN                filled entry, being held
@@ -21,7 +22,9 @@ EXIT REASONS (priority order when several apply; all that apply are recorded)
     REGIME_INVALIDATION the regime turned to the opposite direction (or HIGH_VOLATILITY), when enabled
     SETUP_INVALIDATED   (only when a setup check is supplied) the entry setup failed, for example price closed back
                         inside the opening range it had broken out of
-    PROFIT_TARGET       unrealized net P&L >= profit_target_pct_of_defined_risk % of the approved defined risk
+    PROFIT_TARGET       unrealized net P&L >= profit_target_pct_of_defined_risk % of the approved defined risk. A
+                        candidate that carries its own exit plan (the credit structures) uses that plan instead: the
+                        target and the stop are GROSS rupee levels fixed when the trade was decided
     Once a close is decided it is sticky: the manager keeps trying even if the trigger later fades.
 
 UNREALIZED versus REALIZED
@@ -32,6 +35,7 @@ UNREALIZED versus REALIZED
 from collections import namedtuple
 from decimal import Decimal
 
+from .. import legs as legs_mod
 from ..costs.models import BUY, SELL, LegExecution, paise
 from ..errors import ContractError, CostRateUnverified
 from ..execution import paper as X
@@ -71,7 +75,7 @@ class PositionManager(object):
     def __init__(self, cfg, params, executor, risk_manager, provider, calendar, regime_params, cost_engine,
                  data_mode="fixture", regime_fn=None, data_label=None, setup_exit_fn=None):
         paper_only.assert_paper_only(cfg)
-        self._setup_exit_fn = setup_exit_fn          # (now, entry regime label) -> reason text or None
+        self._setup_exit_fn = setup_exit_fn          # (now, entry regime label, candidate) -> reason text or None
         self._cfg, self._p, self._ex, self._risk = cfg, params, executor, risk_manager
         self._provider, self._calendar, self._rp, self._costs = provider, calendar, regime_params, cost_engine
         self._data_mode, self._data_label = data_mode, data_label
@@ -114,14 +118,15 @@ class PositionManager(object):
     def _entry_conflicts(self, candidate, lots):
         """Defence in depth behind the risk engine: one position per contract pair, never more than the lot ceiling."""
         out = []
-        mine = {candidate.long_contract.symbol, candidate.short_contract.symbol}
+        mine = legs_mod.symbols(candidate)
         open_lots = 0
         for p in self.active():
             cand = self._ex.position(p.position_id).candidate
             open_lots += p.lots
-            if mine & {cand.long_contract.symbol, cand.short_contract.symbol}:
+            held = legs_mod.symbols(cand)
+            if mine & held:
                 out.append(("DUPLICATE_POSITION", "a position already holds %s: no adding, averaging or rolling" % (
-                    ", ".join(sorted(mine & {cand.long_contract.symbol, cand.short_contract.symbol})))))
+                    ", ".join(sorted(mine & held)))))
         if open_lots + lots > risk_engine.effective_max_lots(self._cfg):
             out.append(("POSITION_LOT_CEILING", "%d open + %d new lot(s) exceeds the ceiling" % (open_lots, lots)))
         return out
@@ -135,11 +140,7 @@ class PositionManager(object):
 
     def _unrealized(self, pos, fills, now):
         epos = self._ex.position(pos.position_id)
-        s = epos.candidate.spread
-        entry = {f.leg_id: f for f in epos.entry_fills}
-        exit_ = {f.leg_id: f for f in fills}
-        gross = ((exit_["long"].fill_price - entry["long"].fill_price)
-                 + (entry["short"].fill_price - exit_["short"].fill_price)) * s.units
+        gross = legs_mod.gross_pnl(epos.candidate, epos.entry_fills, fills)
         est = self._costs.exit_costs([LegExecution(f.leg_id, f.side, f.fill_price, f.units, now.date()) for f in fills])
         entry_costs = epos.actual_entry_costs.total
         return {"label": NOTE_UNREALIZED, "gross_pnl_inr": paise(gross), "actual_entry_costs_inr": paise(entry_costs),
@@ -175,7 +176,14 @@ class PositionManager(object):
             triggers.append(DATA_SAFETY)
 
         defined = self._ex.position(position_id).approval.defined_risk_inr
-        if unrealized is not None:
+        plan = getattr(epos.candidate, "exit_plan", None)
+        if unrealized is not None and plan:
+            gross = unrealized["gross_pnl_inr"]                      # the plan's levels are gross rupee levels
+            if gross <= -Decimal(plan["stop_gross_inr"]):
+                triggers.append(STOP_LOSS)
+            if gross >= Decimal(plan["target_gross_inr"]):
+                triggers.append(PROFIT_TARGET)
+        elif unrealized is not None:
             net = unrealized["net_pnl_inr"]
             if net <= -(defined * self._p.stop_loss_pct_of_defined_risk / 100):
                 triggers.append(STOP_LOSS)
@@ -188,7 +196,7 @@ class PositionManager(object):
             triggers.append(REGIME_INVALIDATION)
         if self._p.invalidate_on_high_volatility and label == regime_engine.HIGH_VOLATILITY:
             triggers.append(REGIME_INVALIDATION)
-        if self._setup_exit_fn is not None and self._setup_exit_fn(now, entry_label):
+        if self._setup_exit_fn is not None and self._setup_exit_fn(now, entry_label, epos.candidate):
             triggers.append(SETUP_INVALIDATED)
         if pos.state == EXIT_PENDING and pos.exit_reason and pos.exit_reason not in triggers:
             triggers.append(pos.exit_reason)                       # a decided close stays decided

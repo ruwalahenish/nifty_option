@@ -285,6 +285,7 @@ class LiveSession(object):
                 continue
             defined = epos.approval.defined_risk_inr
             u, fills, problems = self._unrealised(p.position_id, now)
+            stop_net, target_net = self._exit_levels(epos, defined, u, params)
             exit_by_leg = {f.leg_id: f for f in fills}
             legs = []
             for f in epos.entry_fills:
@@ -304,8 +305,7 @@ class LiveSession(object):
                 "position_id": p.position_id, "state": p.state, "strategy": p.strategy_type,
                 "entry_time": p.entry_time.isoformat(), "lots": p.lots, "legs": legs, "unrealized": u,
                 "mark_problems": problems, "defined_risk_inr": str(defined),
-                "stop_at_net_inr": str(paise(-(defined * params.stop_loss_pct_of_defined_risk / 100))),
-                "target_at_net_inr": str(paise(defined * params.profit_target_pct_of_defined_risk / 100)),
+                "stop_at_net_inr": str(paise(stop_net)), "target_at_net_inr": str(paise(target_net)),
                 "exit_reason": p.exit_reason, "exit_attempts": p.exit_attempts,
                 "pending_reasons": [c for c, _ in p.last_pending_reasons], "critical": p.critical})
         for t in self.runner._carried:                      # trades of earlier runs today, valued as they were closed
@@ -315,6 +315,17 @@ class LiveSession(object):
                 "closed_at": t["closed_at"], "exit_reason": t["exit_reason"], "gross_pnl_inr": t["gross"],
                 "net_pnl_inr": t["net"], "administrative": not t["closed"] or t["administrative"], "legs": t["legs"]})
         return realised, (unrealised if marked_all else None), open_views, closed_views
+
+    @staticmethod
+    def _exit_levels(epos, defined, u, params):
+        """(stop, target) as net P&L levels for the dashboard gauge. A candidate with its own exit plan (the credit
+        structures) fixed GROSS levels when it was decided; they are shown net of the costs the mark already includes."""
+        plan = getattr(epos.candidate, "exit_plan", None)
+        if not plan:
+            return (-(defined * params.stop_loss_pct_of_defined_risk / 100),
+                    defined * params.profit_target_pct_of_defined_risk / 100)
+        costs = (Decimal(u["gross_pnl_inr"]) - Decimal(u["net_pnl_inr"])) if u else Decimal(epos.actual_entry_costs.total)
+        return -Decimal(plan["stop_gross_inr"]) - costs, Decimal(plan["target_gross_inr"]) - costs
 
     def _append_curve(self, now):
         if self.runner is None:
@@ -376,7 +387,8 @@ class LiveSession(object):
                    d.get("strategy", {}).get("reasons")) or d.get("regime", {}).get("reasons") or []
             view["last_decision"] = {"decision_time": d["decision_time"], "status": d.get("status"),
                                      "regime": d["regime"]["label"], "strategy_outcome": d["strategy"]["outcome"],
-                                     "reasons": [r["text"] for r in why][:4], "setup": d.get("setup")}
+                                     "reasons": [r["text"] for r in why][:4], "setup": d.get("setup"),
+                                     "selector": d.get("selector")}
         for fp, p in (self.runner.pending or {}).items():
             view["pending_tickets"].append({
                 "fingerprint": fp, "text": p.ticket.text, "decided_at": p.decided_at.isoformat(),

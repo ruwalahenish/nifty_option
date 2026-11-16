@@ -40,9 +40,10 @@ from ..errors import SpreadError
 from ..guards import paper_only
 from ..instruments.leg import BUY, SELL
 from ..instruments.spread import KIND_BEAR_PUT, KIND_BULL_CALL
-from ..market.ist import to_ist
+from ..market.ist import slot_floor, to_ist
 from ..regime import engine as regime_engine
 from ..strategy import engine as strategy_engine
+from ..strategy.structure_candidate import StructureCandidate
 from . import analysis as A
 from . import structures as S
 
@@ -62,11 +63,12 @@ NOTE = ("A selection is a proposal only: it has not been entered, and no order o
 Reason = namedtuple("Reason", "code text")
 Cond = namedtuple("Cond", "name passed detail required weight")
 Proposal = namedtuple("Proposal", "kind direction structure legs quality friction_pct defined_risk_inr risk_parts "
-                                  "max_profit_inr max_loss_inr reward_to_risk breakevens considered")
+                                  "max_profit_inr max_loss_inr reward_to_risk breakevens considered candidate",
+                      defaults=(None,))
 Evaluation = namedtuple("Evaluation", "strategy eligible confidence conditions proposal blockers")
 Selection = namedtuple("Selection", (
     "outcome as_of analysis selected confidence confidence_label why trigger setup exit_rules evaluations reasons "
-    "regime_label thresholds_fingerprint note"))
+    "regime_label thresholds_fingerprint note candidate"), defaults=(None,))
 
 
 # ---------------------------------------------------------------- helpers
@@ -109,9 +111,9 @@ def confidence_label(score):
 
 
 def _timing(as_of, latest, label):
-    return _cond("time window", as_of.time() <= hhmm(latest),
-                 "%s: %s, no new %s entry after %s" % ("inside" if as_of.time() <= hhmm(latest) else "outside",
-                                                       as_of.strftime("%H:%M"), label, latest))
+    ok = slot_floor(as_of).time() <= hhmm(latest)               # a slot rule: 13:30:07 is still the 13:30 slot
+    return _cond("time window", ok, "%s: %s, no new %s entry after %s" % (
+        "inside" if ok else "outside", as_of.strftime("%H:%M"), label, latest))
 
 
 class _Ctx(object):
@@ -248,7 +250,8 @@ def _eval_debit(c):
                                         "entry_costs_inr": risk.entry_costs.total,
                                         "estimated_exit_costs_inr": risk.estimated_exit_costs.total,
                                         "slippage_inr": risk.entry_slippage_inr},
-                                       sp.gross_max_profit_inr, sp.gross_max_loss_inr, rr, (sp.expiry_breakeven,), ()))
+                                       sp.gross_max_profit_inr, sp.gross_max_loss_inr, rr, (sp.expiry_breakeven,), (),
+                                       candidate=cand))
             # best reward-to-risk first, then the engine's own ranking (lowest friction) already in list order
             proposal = sorted(ok, key=lambda x: -x.reward_to_risk)[0] if ok else None
     blockers = [x for x in conds if x.required and not x.passed]
@@ -547,6 +550,60 @@ def _first_blocker(ev):
     return "no qualifying structure"
 
 
+# ---------------------------------------------------------------- the tradable candidate
+def _exit_plan(prop, a, c):
+    """The exit levels of a credit structure, fixed now: gross rupee target and stop, and what invalidates it."""
+    p, s = c.p, prop.structure
+    cr = s.net_credit_points
+    loss_pts = min(cr * p.credit_stop_pct_of_credit / 100, (s.width_points - cr) * p.credit_stop_max_pct_of_max_loss / 100)
+    plan = {"family": "credit", "target_gross_inr": str((cr * p.credit_target_pct_of_credit / 100 * s.units).quantize(Decimal("0.01"))),
+            "stop_gross_inr": str((loss_pts * s.units).quantize(Decimal("0.01"))),
+            "max_loss_inr": str(prop.max_loss_inr.quantize(Decimal("0.01")))}
+    if prop.kind == S.KIND_BULL_PUT:
+        short_put = next(l for l in prop.legs if not l.is_long)
+        level = max(short_put.strike, a.support) if a.support is not None else short_put.strike
+        plan["invalidate"] = {"rule": "close_below", "level": str(level)}
+    elif prop.kind == S.KIND_BEAR_CALL:
+        short_call = next(l for l in prop.legs if not l.is_long)
+        level = min(short_call.strike, a.resistance) if a.resistance is not None else short_call.strike
+        plan["invalidate"] = {"rule": "close_above", "level": str(level)}
+    else:
+        sc_ = next(l for l in prop.legs if not l.is_long and l.option_type == "CE")
+        sp_ = next(l for l in prop.legs if not l.is_long and l.option_type == "PE")
+        plan["invalidate"] = {"rule": "outside_range", "low": str(a.day_low), "high": str(a.day_high),
+                              "short_put": str(sp_.strike), "short_call": str(sc_.strike), "buffer_points": str(c.interval)}
+    return plan
+
+
+def _structure_candidate(prop, ev, a, c):
+    """A StructureCandidate for a credit proposal. Still only a proposal: nothing is sized, approved or entered."""
+    s = prop.structure
+    regime_label = {S.KIND_BULL_PUT: regime_engine.BULLISH, S.KIND_BEAR_CALL: regime_engine.BEARISH}.get(prop.kind, "NEUTRAL")
+    liquidity = {"legs": [strategy_engine._leg_evidence(c.chain.get(l.contract), l.entry_price, "BUY" if l.is_long else "SELL")
+                          for l in s.legs],
+                 "chain_age_seconds": int((c.as_of - c.chain.snapshot_time).total_seconds())}
+    return StructureCandidate(
+        strategy_type=prop.kind,
+        regime_at_entry={"label": regime_label, "as_of": c.as_of.isoformat(), "evidence_score": None, "bull_votes": None,
+                         "bear_votes": None, "thresholds_fingerprint": c.regime_params.fingerprint},
+        decision_time=c.as_of, chain_snapshot_time=c.chain.snapshot_time, data_label=c.chain.data_label,
+        data_mode=c.data_mode, expiry=s.expiry, structure=s, lots=s.lots, lot_size=s.lot_size,
+        net_credit_points=s.net_credit_points, net_credit_inr=s.net_credit_points * s.units, width_points=s.width_points,
+        liquidity=liquidity,
+        selection={"rule": "adaptive selector: highest confidence among strategies whose required conditions all pass",
+                   "strategy": TITLES[ev.strategy], "confidence": ev.confidence, "credit_to_width": str(Decimal(prop.quality).quantize(Decimal("0.0001"))),
+                   "entry_friction_pct": str(Decimal(prop.friction_pct).quantize(Decimal("0.01"))),
+                   "market": a.summary, "decision_spot": str(a.spot),
+                   "evaluation_lots_note": "lots is the unit used to evaluate the candidate, not a position size"},
+        assumptions={"strategy_thresholds": strategy_engine.params_as_json(c.strategy_params),
+                     "selector_thresholds_fingerprint": c.p.fingerprint,
+                     "entry_window_ist": [c.cfg.entry_window_start_ist, c.cfg.entry_window_end_ist],
+                     "flat_by_ist": c.cfg.flat_by_ist, "quote_stale_after_seconds": c.cfg.data_stale_after_seconds,
+                     "regime_thresholds_fingerprint": c.regime_params.fingerprint,
+                     "entry_prices": "ask of each long leg, bid of each short leg"},
+        exit_plan=_exit_plan(prop, a, c), note=NOTE)
+
+
 # ---------------------------------------------------------------- the decision
 def _no_trade(as_of, analysis, reasons, regime, p, evaluations=()):
     return Selection(NO_TRADE, as_of, analysis, None, None, None, [], [], None, None, tuple(evaluations), tuple(reasons),
@@ -570,7 +627,7 @@ def select(regime, candles, chain, events, as_of, ctx, p, position_open=False, k
         return _no_trade(as_of, analysis, [Reason("MARKET_CLOSED", "no trading session on %s" % day)], regime, p)
     strategy_engine.check_alignment(cfg, ctx.regime_params, session)
     start, end = hhmm(cfg.entry_window_start_ist), hhmm(cfg.entry_window_end_ist)
-    if not start <= as_of.time() <= end:
+    if not start <= slot_floor(as_of).time() <= end:
         gate.append(Reason("OUTSIDE_ENTRY_WINDOW", "%s is outside the entry window %s-%s" % (
             as_of.strftime("%H:%M"), cfg.entry_window_start_ist, cfg.entry_window_end_ist)))
     if regime is None or regime.as_of != as_of:
@@ -617,9 +674,10 @@ def select(regime, candles, chain, events, as_of, ctx, p, position_open=False, k
     best = ranked[0]
     others = [e for e in evals if e is not best]
     prop = best.proposal
+    candidate = prop.candidate if prop.candidate is not None else _structure_candidate(prop, best, analysis, c)
     return Selection(TRADE, as_of, analysis, best.strategy, best.confidence, confidence_label(best.confidence),
                      _why(best, others, analysis), _trigger(prop, best, analysis, c), _setup(prop, analysis, c),
-                     _exit_rules(prop, analysis, c), evals, (), regime.label, p.fingerprint, NOTE)
+                     _exit_rules(prop, analysis, c), evals, (), regime.label, p.fingerprint, NOTE, candidate)
 
 
 def select_at(provider, ctx, p, as_of, position_open=False, kill_dir=None, data_label=None):

@@ -49,9 +49,10 @@ missing, stale or one-sided the mark shows "unavailable" with the reason; a pric
 
 ## Entry rules: profiles
 
-`live_run` now defaults to `--profile intraday`: an opening-range breakout entered on a retest, described in
-`INTRADAY_PLAYBOOK.md` (rules, daily routine and review checklist). The older `--profile human` (vote-based trend, below) and
-`--profile default` (strict) are still available.
+`live_run` defaults to `--profile adaptive`: the strategy selector reads the market and picks a debit spread, a credit spread, an iron
+condor or an iron butterfly, or no trade (see [STRATEGY_SELECTOR.md](STRATEGY_SELECTOR.md), section 7). The Live page shows how each
+of the four was judged and what failed. `--profile intraday` keeps the single opening-range breakout setup entered on a retest
+(`INTRADAY_PLAYBOOK.md`); the older `--profile human` (vote-based trend, below) and `--profile default` (strict) are still available.
 
 ### The "human" profile
 

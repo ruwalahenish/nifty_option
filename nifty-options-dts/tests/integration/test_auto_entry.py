@@ -283,14 +283,14 @@ class SetupExitTests(TP.Base):
         return pos.position_id
 
     def test_a_failed_setup_closes_the_position(self):
-        pid = self.manager(lambda now, label: "back inside the range")
+        pid = self.manager(lambda now, label, candidate=None: "back inside the range")
         d = self.pm.evaluate(pid, TP.at(300))
         self.assertEqual((d.action, d.primary_reason), (M.CLOSE, M.SETUP_INVALIDATED))
         self.assertEqual(self.pm.manage(pid, TP.at(300)).position.state, M.CLOSED)
 
     def test_the_entry_label_is_handed_to_the_check_and_a_quiet_check_holds(self):
         seen = []
-        pid = self.manager(lambda now, label: seen.append(label) or None)
+        pid = self.manager(lambda now, label, candidate=None: seen.append(label) or None)
         self.assertEqual(self.pm.evaluate(pid, TP.at(300)).action, M.HOLD)
         self.assertEqual(seen, ["BULLISH"])
 

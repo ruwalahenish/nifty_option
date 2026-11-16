@@ -161,6 +161,30 @@ def _setup_rules_card(setup):
         esc(side), _table(["", "rule", "value", "needs"], rows))
 
 
+def _selector_card(sel):
+    """How the adaptive selector read the market and judged each of the four strategies at the latest decision. Empty when
+    the session does not use the selector."""
+    if not sel or not sel.get("evaluations"):
+        return ""
+    rows = []
+    for ev in sel["evaluations"]:
+        chosen = ev.get("strategy") == sel.get("selected_title")
+        failed = next((c for c in ev.get("conditions", []) if c.get("required") and not c.get("passed")), None)
+        if chosen:
+            status = "<b>SELECTED</b>, confidence %s" % esc(ev.get("confidence"))
+        elif ev.get("eligible"):
+            status = "eligible, confidence %s" % esc(ev.get("confidence"))
+        else:
+            status = "not eligible"
+        why = "" if failed is None else "%s: %s" % (esc(failed.get("name")), esc(failed.get("detail")))
+        rows.append([esc(ev.get("strategy")), status, why])
+    head = "<p>%s</p>" % esc(sel.get("market")) if sel.get("market") else ""
+    wait = sel.get("awaiting_confirmation")
+    if wait:
+        head += "<p class=mute>Pick %s of %s consecutive slots needed before entry.</p>" % (esc(wait.get("have")), esc(wait.get("need")))
+    return "<h2>Strategy selector</h2><div class=card>%s%s</div>" % (head, _table(["strategy", "status", "first thing that failed"], rows))
+
+
 def render_index(folder):
     names = list_journals(folder)
     rows = []
@@ -524,6 +548,7 @@ def live_fragment(state_path, journal_dir=None, now=None):
         body += ("<h2>Latest decision</h2><div class=card><b>%s</b> at %s &middot; regime %s &middot; strategy %s%s</div>" % (
             esc(d.get("status")), _hhmmss(d.get("decision_time")), esc(d.get("regime")), esc(d.get("strategy_outcome")), why))
     body += _setup_rules_card((d or {}).get("setup"))
+    body += _selector_card((d or {}).get("selector"))
     sl = st.get("slots") or {}
     if sl.get("next"):
         body += "<p class=mute>Next decision slot: %s (a slot every 5 minutes from %s to %s).</p>" % (
@@ -531,7 +556,8 @@ def live_fragment(state_path, journal_dir=None, now=None):
 
     price = spot_svg(st.get("spot_series"), st.get("candle_closes"), st.get("levels"))
     if price:
-        body += "<h2>NIFTY today, with the opening range and breakout triggers</h2><div class=card>%s</div>" % price
+        body += "<h2>NIFTY today%s</h2><div class=card>%s</div>" % (
+            ", with the opening range and breakout triggers" if st.get("levels") else "", price)
     if st.get("chain_view"):
         body += "<h2>Option chain around the money (live quotes)</h2><div class=card>%s</div>" % _chain_table(st["chain_view"])
 

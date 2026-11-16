@@ -30,8 +30,39 @@ def _q(d):
     return Decimal(d).quantize(Decimal("0.01"))
 
 
+KIND_TITLES = {"BULL_PUT_CREDIT": "Bull Put Credit Spread", "BEAR_CALL_CREDIT": "Bear Call Credit Spread",
+               "IRON_CONDOR": "Iron Condor", "IRON_BUTTERFLY": "Iron Butterfly"}
+
+
+def _make_structure_ticket(candidate, risk_decision):
+    """The ticket for a credit structure: every leg is listed, so the reply is checked against every strike and price."""
+    cid = risk_engine.candidate_fingerprint(candidate)
+    fp = cid[:16]
+    calc = risk_decision.calculation
+    s = candidate.structure
+    limit = Decimal(risk_decision.limits["risk_per_trade_inr"])
+    leg_lines = "\n".join("  %-4s %s at about %s" % ("BUY" if l.is_long else "SELL", l.contract.symbol, l.entry_price)
+                          for l in s.legs)
+    text = ("PAPER ORDER (simulated, no real order) %s: %s\n%s\n"
+            "  %d lot(s) of %d = %d units | width %s points | net credit %s points = INR %s\n"
+            "  Total defined risk INR %s (worst-case loss + entry costs + estimated exit costs + slippage); "
+            "per-trade limit INR %s\n"
+            "  Decided %s | fingerprint %s" % (
+                KIND_TITLES.get(candidate.strategy_type, candidate.strategy_type), candidate.expiry.isoformat(), leg_lines,
+                candidate.lots, candidate.lot_size, s.units, candidate.width_points, candidate.net_credit_points,
+                _q(candidate.net_credit_inr), _q(calc["total_defined_risk_inr"]), _q(limit),
+                candidate.decision_time.strftime("%Y-%m-%d %H:%M IST"), fp))
+    nums = [Decimal(candidate.lots), Decimal(candidate.lot_size), Decimal(s.units), candidate.width_points,
+            candidate.net_credit_points, _q(candidate.net_credit_inr), _q(calc["total_defined_risk_inr"]), limit]
+    for l in s.legs:
+        nums += [l.strike, l.entry_price]
+    return Ticket(fp, cid, candidate.strategy_type, text, tuple(nums), candidate.decision_time)
+
+
 def make_ticket(candidate, risk_decision):
     """The plain-language ticket for one risk-APPROVED candidate. Its fingerprint is the first 16 hex of the candidate's."""
+    if hasattr(candidate, "structure"):
+        return _make_structure_ticket(candidate, risk_decision)
     cid = risk_engine.candidate_fingerprint(candidate)
     fp = cid[:16]
     calc = risk_decision.calculation
