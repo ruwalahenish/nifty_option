@@ -40,11 +40,16 @@ def in_session(t):
 AUTO_EXPIRY_ORDER = ("current_week", "next_week", "current_month")
 
 
-def resolve_expiry(token, expiry, transport=None):
+def resolve_expiry(token, expiry, transport=None, today=None, min_days=None):
     """Turn "auto" or a keyword into one explicit expiry date (YYYY-MM-DD) that actually has quotes, so every snapshot
-    of a session is for the same expiry. An explicit date is returned unchanged."""
+    of a session is for the same expiry. An explicit date is returned unchanged.
+
+    With `min_days` (and `today`), "auto" skips an expiry that is closer than the strategy's minimum: on a Monday the
+    current weekly expiry is Tuesday, one day away, and a session recorded for it could never trade all day (every
+    decision would say "no listed expiry is at least 2 days away"), so the next listed expiry is used instead."""
     if len(expiry) == 10 and expiry[4] == "-":
         return expiry
+    skipped = []
     for key in (AUTO_EXPIRY_ORDER if expiry == "auto" else (expiry,)):
         try:
             _, rows = ur.get_option_chain(token, key, transport=transport)
@@ -52,7 +57,15 @@ def resolve_expiry(token, expiry, transport=None):
             if e.status is not None:
                 raise
             continue                                  # empty chain for this keyword: try the next one
-        return rows[0]["expiry"]
+        found = rows[0]["expiry"]
+        if expiry == "auto" and min_days is not None and today is not None:
+            days = (dt.date.fromisoformat(found) - today).days
+            if days < min_days:
+                skipped.append("%s (%d day%s away)" % (found, days, "" if days == 1 else "s"))
+                continue
+        return found
+    if skipped:
+        raise ur.UpstoxReadError("every listed expiry is closer than the %d-day minimum: %s" % (min_days, ", ".join(skipped)))
     raise ur.UpstoxReadError("no option chain with quotes was found for %r" % expiry)
 
 

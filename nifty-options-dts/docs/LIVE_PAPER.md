@@ -54,6 +54,22 @@ condor or an iron butterfly, or no trade (see [STRATEGY_SELECTOR.md](STRATEGY_SE
 of the four was judged and what failed. `--profile intraday` keeps the single opening-range breakout setup entered on a retest
 (`INTRADAY_PLAYBOOK.md`); the older `--profile human` (vote-based trend, below) and `--profile default` (strict) are still available.
 
+### The page, top to bottom
+
+A sticky **top bar** keeps the readiness status, data freshness and in-page navigation in view. **Overview** is the readiness status
+with the next action in one sentence, a progress stepper (market signal, confirmation, risk check, executed), the key facts and the
+day's numbers. Then the **open position** (or a ticket waiting for your yes), **what the system is waiting for** (the checklist beside
+the expected entry), **all four strategies**, the **decision history**, and **market and activity** (chart, option chain, closed trades,
+events; the last three fold away). Every status is a word plus an icon, never colour alone. The page works on a phone, follows your
+light or dark setting, and needs no internet. It refreshes every second and keeps any section you opened as you left it.
+
+### Trade Readiness (adaptive profile)
+
+Under *Latest decision* the Live page shows **Trade Readiness**: the status, the market regime, the strategy being evaluated, its
+direction, the next action in plain language, the checklist, the expected entry (or ENTRY NOT AVAILABLE and why), all four strategies
+side by side, and below it the **Decision history** of the day. See [STRATEGY_SELECTOR.md](STRATEGY_SELECTOR.md), section 8. The same
+data is available as JSON at `/api/trade-readiness` and `/api/decision-history`.
+
 ### The "human" profile
 
 The original thresholds were deliberately strict (a trend needed 60 minutes of candles and a 0.30% move from the open, with

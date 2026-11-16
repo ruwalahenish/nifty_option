@@ -40,6 +40,7 @@ from .risk import engine as risk_engine
 from .selector import engine as selector_engine
 from .selector import exits as selector_exits
 from .selector import params as selector_params_mod
+from .selector import readiness as readiness_mod
 from . import legs as legs_mod
 from .risk import ledger as ledger_mod
 from .strategy import engine as strategy_engine
@@ -370,6 +371,7 @@ class DayRunner(object):
         d = self.last_decision
         if d is not None and d.get("ticket_fingerprint") == fingerprint:
             d["status"] = status
+            readiness_mod.finalize(d.get("readiness"), status, d)
 
     def answer(self, fingerprint, reply, now):
         """Apply a reply to a waiting ticket at `now`. Returns the resulting status (or UNKNOWN_TICKET)."""
@@ -432,6 +434,13 @@ class DayRunner(object):
         offered = (d.candidate,) + tuple(d.alternates)
         return self._risk_and_enter(offered, record, t, d.regime.label)
 
+    def _append_decision(self, t, record):
+        """Journal a decision. For the adaptive profile its readiness is brought up to the decision's final status first, so the
+        journal and the dashboard say the same thing (TRADE EXECUTED, EXECUTION BLOCKED, READY TO EXECUTE ...)."""
+        if record.get("readiness"):
+            readiness_mod.finalize(record["readiness"], record.get("status"), record)
+        self.journal.append("DECISION", t, record)
+
     def _decide_adaptive(self, t):
         """The selector reads the market and picks one of four strategies, or none. A pick is only offered to the risk gate
         once it has been the pick at `entry_confirmations` consecutive slots, so a one-slot flicker never trades."""
@@ -439,6 +448,14 @@ class DayRunner(object):
         p = ctx.selector_params
         sel = selector_engine.select_at(provider, ctx, p, t, False, self.kill_dir, _label(provider))
         analysis = sel.analysis
+        have = None
+        if sel.outcome == selector_engine.TRADE:            # how many slots in a row this has been the pick
+            kind = sel.candidate.strategy_type
+            self._pick_count = self._pick_count + 1 if kind == self._pick else 1
+            self._pick = kind
+            have = self._pick_count
+        else:
+            self._pick, self._pick_count = None, 0
         record = {"decision_time": t.isoformat(), "inputs_hash": _selector_inputs_hash(provider, sel, ctx),
                   "regime": {"label": analysis.structure if analysis is not None else (sel.regime_label or "UNKNOWN"),
                              "evidence_score": None, "bull_votes": None, "bear_votes": None, "reasons": [],
@@ -446,17 +463,15 @@ class DayRunner(object):
                   "strategy": {"outcome": "CANDIDATE" if sel.outcome == selector_engine.TRADE else "NO_TRADE",
                                "reasons": _reason_list(sel.reasons), "candidates_tested": len(selector_engine.STRATEGIES),
                                "thresholds_fingerprint": p.fingerprint},
-                  "selector": _selector_summary(sel)}
+                  "selector": _selector_summary(sel),
+                  "readiness": readiness_mod.build(sel, p, ctx.cfg, None if have is None else {"have": have})}
         self.last_decision = record
         if sel.outcome != selector_engine.TRADE:
-            self._pick, self._pick_count = None, 0
             record["status"] = "NO_TRADE"
-            journal.append("DECISION", t, record)
+            self._append_decision(t, record)
             return "NO_TRADE"
         cand = sel.candidate
         kind = cand.strategy_type
-        self._pick_count = self._pick_count + 1 if kind == self._pick else 1
-        self._pick = kind
         if self._pick_count < p.entry_confirmations:
             record["strategy"]["outcome"] = "NO_TRADE"
             record["strategy"]["reasons"] = [{"code": "AWAITING_CONFIRMATION", "text": (
@@ -466,7 +481,7 @@ class DayRunner(object):
             record["selector"]["awaiting_confirmation"] = {"strategy": kind, "have": self._pick_count,
                                                            "need": p.entry_confirmations}
             record["status"] = "NO_TRADE"
-            journal.append("DECISION", t, record)
+            self._append_decision(t, record)
             return "NO_TRADE"
         status = self._risk_and_enter((cand,), record, t, cand.regime_at_entry["label"])
         if status == "ENTERED":
@@ -500,7 +515,7 @@ class DayRunner(object):
                           "per_trade_limit_inr": rd.limits["risk_per_trade_inr"], "fingerprints": rd.fingerprints}
         if rd.outcome != risk_engine.APPROVED:
             record["status"] = "BLOCKED"
-            journal.append("DECISION", t, record)
+            self._append_decision(t, record)
             return "BLOCKED"
         ticket = approval_mod.make_ticket(cand, rd)
         journal.append("TICKET", t, {"fingerprint": ticket.fingerprint, "text": ticket.text,
@@ -520,7 +535,7 @@ class DayRunner(object):
                 self.pending[ticket.fingerprint] = PendingTicket(ticket, rd.approval, cand, regime_label, t)
             record["status"] = "AWAITING_APPROVAL"
             record["ticket_fingerprint"] = ticket.fingerprint
-            journal.append("DECISION", t, record)
+            self._append_decision(t, record)
             return "AWAITING_APPROVAL"
         ok, why = approval_mod.parse_yes(reply, ticket)
         journal.append("APPROVAL", t, {"fingerprint": ticket.fingerprint, "reply_verbatim": reply, "accepted": ok,
@@ -529,7 +544,7 @@ class DayRunner(object):
             _release(mgr, rd.approval)
             record["status"] = "DECLINED"
             record["ticket_fingerprint"] = ticket.fingerprint
-            journal.append("DECISION", t, record)
+            self._append_decision(t, record)
             return "DECLINED"
         return self._enter(rd, cand, record, t)
 
@@ -541,11 +556,11 @@ class DayRunner(object):
             _release(self.mgr, rd.approval)
             record["status"] = "ENTRY_NOT_FILLED"
             record["reasons_not_filled"] = _reason_list(result.reasons)
-            self.journal.append("DECISION", t, record)
+            self._append_decision(t, record)
             return "ENTRY_NOT_FILLED"
         record["status"] = "ENTERED"
         record["position_id"] = pos.position_id
-        self.journal.append("DECISION", t, record)
+        self._append_decision(t, record)
         return "ENTERED"
 
 

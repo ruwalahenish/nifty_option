@@ -280,7 +280,7 @@ def run_live(a):
         sys.exit("The market is closed (%s IST). Start between 09:15 and 15:30 on a trading day, or use --replay."
                  % t.strftime("%a %H:%M"))
     try:
-        expiry = recorder.resolve_expiry(token, a.expiry)
+        expiry = recorder.resolve_expiry(token, a.expiry, today=day, min_days=ctx.strategy_params.min_days_to_expiry)
     except ur.UpstoxReadError as e:
         sys.exit("could not choose an expiry: %s" % e)
     out_dir = a.out_dir or os.path.join(PROJECT, "data", "recordings", day.isoformat())

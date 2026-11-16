@@ -68,7 +68,7 @@ Proposal = namedtuple("Proposal", "kind direction structure legs quality frictio
 Evaluation = namedtuple("Evaluation", "strategy eligible confidence conditions proposal blockers")
 Selection = namedtuple("Selection", (
     "outcome as_of analysis selected confidence confidence_label why trigger setup exit_rules evaluations reasons "
-    "regime_label thresholds_fingerprint note candidate"), defaults=(None,))
+    "regime_label thresholds_fingerprint note candidate narratives"), defaults=(None, None))
 
 
 # ---------------------------------------------------------------- helpers
@@ -181,6 +181,14 @@ def _credit_proposal(c, kind, contracts_sides, offset_steps, width, considered):
     return proposal
 
 
+def _no_structure_blocker(c, text):
+    """Why no tradable structure exists although every market condition passed: an unusable chain (a technical problem)
+    or, when the chain is fine, the structure-level reason (liquidity, credit, reward-to-risk, risk limit)."""
+    if c.chain_problem:
+        return [_cond("option chain usable" if c.blocked_by == "chain" else "trading permitted now", False, c.chain_problem)]
+    return [_cond("tradable structure", False, text)]
+
+
 def _best(proposals):
     """Highest credit-to-width, then lower friction, then smaller worst case."""
     return sorted(proposals, key=lambda x: (-x.quality, x.friction_pct, x.defined_risk_inr))[0] if proposals else None
@@ -224,7 +232,7 @@ def _eval_debit(c):
               "room %s" % ("unlimited" if room is None else _pct(room)), False, 15),
     ]
     proposal, considered = None, []
-    if trending and all(x.passed for x in conds if x.required):
+    if trending and c.chain_problem is None and all(x.passed for x in conds if x.required):
         regime = c.regime._replace(label=regime_engine.BULLISH if bull else regime_engine.BEARISH, reasons=())
         d = strategy_engine.decide(regime, c.chain, c.events, c.as_of, c.cfg, c.strategy_params, c.regime_params,
                                    c.specs, c.calendar, c.data_mode)
@@ -256,8 +264,8 @@ def _eval_debit(c):
             proposal = sorted(ok, key=lambda x: -x.reward_to_risk)[0] if ok else None
     blockers = [x for x in conds if x.required and not x.passed]
     if proposal is None and not blockers:
-        blockers = [_cond("tradable structure", False, "no debit spread passed liquidity, reward-to-risk (>= %s) and the "
-                          "risk limit: %s" % (p.min_rr_debit, _summarise_rejections(considered)))]
+        blockers = _no_structure_blocker(c, "no debit spread passed liquidity, reward-to-risk (>= %s) and the "
+                                            "risk limit: %s" % (p.min_rr_debit, _summarise_rejections(considered)))
     if proposal is not None:
         conds += [_cond("reward-to-risk comfortable", proposal.reward_to_risk >= p.min_rr_debit * Decimal("1.5"),
                         "reward-to-risk %.2f" % proposal.reward_to_risk, False, 15),
@@ -289,7 +297,7 @@ def _eval_credit(c):
         _cond("volatility calm", a.recent_stdev_pct <= a.stdev_pct, "recent stdev %.3f%% <= day %.3f%%" % (a.recent_stdev_pct, a.stdev_pct), False, 10),
     ]
     proposal, considered = None, []
-    if all(x.passed for x in conds if x.required):
+    if c.chain_problem is None and all(x.passed for x in conds if x.required):
         interval = c.interval
         d = p.credit_short_distance_pct / 100
         buf = p.level_buffer_pct / 100
@@ -321,8 +329,8 @@ def _eval_credit(c):
         proposal = _best(found)
     blockers = [x for x in conds if x.required and not x.passed]
     if proposal is None and not blockers:
-        blockers = [_cond("tradable structure", False, "no credit spread passed (short strike beyond the level, liquidity, "
-                          "credit >= %s of width, risk limit): %s" % (_pct(p.min_credit_to_width_spread * 100), _summarise_rejections(considered)))]
+        blockers = _no_structure_blocker(c, "no credit spread passed (short strike beyond the level, liquidity, "
+                                            "credit >= %s of width, risk limit): %s" % (_pct(p.min_credit_to_width_spread * 100), _summarise_rejections(considered)))
     if proposal is not None:
         sh = proposal.structure.legs[0]
         dist = abs(sh.strike / a.spot - 1) * 100
@@ -356,7 +364,7 @@ def _eval_condor(c):
         _cond("centred", abs(a.range_position - Decimal("0.5")) <= Decimal("0.15"), "range position %.0f%%" % (a.range_position * 100), False, 10),
     ]
     proposal, considered = None, []
-    if all(x.passed for x in conds if x.required):
+    if c.chain_problem is None and all(x.passed for x in conds if x.required):
         interval = c.interval
         d, buf = p.condor_short_distance_pct / 100, p.level_buffer_pct / 100
         call_base = _ceil_strike(max(a.spot * (1 + d), a.day_high * (1 + buf)), interval)
@@ -372,8 +380,8 @@ def _eval_condor(c):
         proposal = _best([x for x in found if x])
     blockers = [x for x in conds if x.required and not x.passed]
     if proposal is None and not blockers:
-        blockers = [_cond("tradable structure", False, "no iron condor passed (short strikes outside the day's range, liquidity, "
-                          "credit >= %s of width, risk limit): %s" % (_pct(p.min_credit_to_width_condor * 100), _summarise_rejections(considered)))]
+        blockers = _no_structure_blocker(c, "no iron condor passed (short strikes outside the day's range, liquidity, "
+                                            "credit >= %s of width, risk limit): %s" % (_pct(p.min_credit_to_width_condor * 100), _summarise_rejections(considered)))
     if proposal is not None:
         conds += [_cond("credit well above the floor", proposal.quality >= p.min_credit_to_width_condor * Decimal("1.5"),
                         "credit is %s of the width" % _pct(proposal.quality * 100), False, 10),
@@ -401,7 +409,7 @@ def _eval_fly(c):
         _cond("centred in the range", abs(a.range_position - Decimal("0.5")) <= Decimal("0.15"), "range position %.0f%%" % (a.range_position * 100), False, 15),
     ]
     proposal, considered = None, []
-    if all(x.passed for x in conds if x.required):
+    if c.chain_problem is None and all(x.passed for x in conds if x.required):
         interval = c.interval
         k = _atm(a.spot, interval)
         found = []
@@ -413,8 +421,8 @@ def _eval_fly(c):
         proposal = _best([x for x in found if x])
     blockers = [x for x in conds if x.required and not x.passed]
     if proposal is None and not blockers:
-        blockers = [_cond("tradable structure", False, "no iron butterfly passed (liquidity, credit >= %s of width, risk limit): %s" % (
-            _pct(p.min_credit_to_width_fly * 100), _summarise_rejections(considered)))]
+        blockers = _no_structure_blocker(c, "no iron butterfly passed (liquidity, credit >= %s of width, risk limit): %s" % (
+            _pct(p.min_credit_to_width_fly * 100), _summarise_rejections(considered)))
     if proposal is not None:
         conds += [_cond("credit well above the floor", proposal.quality >= p.min_credit_to_width_fly * Decimal("1.25"),
                         "credit is %s of the width" % _pct(proposal.quality * 100), False, 15),
@@ -645,21 +653,35 @@ def select(regime, candles, chain, events, as_of, ctx, p, position_open=False, k
             e_day = e.when.date() if isinstance(e.when, datetime.datetime) else e.when
             if e.impact == "HIGH" and e_day == day:
                 gate.append(Reason("HIGH_IMPACT_EVENT", "scheduled HIGH-impact event today: %s" % e.name))
-    if gate:
-        return _no_trade(as_of, analysis, gate, regime, p)
-    chain_gate = strategy_engine._chain_gates(regime, chain, as_of, cfg, ctx.strategy_params, ctx.specs, calendar, ctx.data_mode)
-    eligible_exp = [e for e in chain.expiries()] if chain is not None else []
-    eligible_exp = [e for e in eligible_exp if (e - day).days >= ctx.strategy_params.min_days_to_expiry]
-    if chain is not None and not chain_gate and not eligible_exp:
-        chain_gate.append(Reason("NO_ELIGIBLE_EXPIRY", "no listed expiry is at least %d days away" % ctx.strategy_params.min_days_to_expiry))
-    if chain_gate:
-        return _no_trade(as_of, analysis, chain_gate, regime, p)
-
+    chain_gate, eligible_exp = [], []
+    if not gate and regime is not None:
+        chain_gate = strategy_engine._chain_gates(regime, chain, as_of, cfg, ctx.strategy_params, ctx.specs, calendar, ctx.data_mode)
+        eligible_exp = [e for e in chain.expiries()] if chain is not None else []
+        eligible_exp = [e for e in eligible_exp if (e - day).days >= ctx.strategy_params.min_days_to_expiry]
+        if chain is not None and not chain_gate and not eligible_exp:
+            listed = ", ".join(str(e) for e in chain.expiries()) or "none"
+            chain_gate.append(Reason("NO_ELIGIBLE_EXPIRY", "no listed expiry is at least %d days away (listed: %s)" % (
+                ctx.strategy_params.min_days_to_expiry, listed)))
+    blocked = gate or chain_gate
+    try:
+        interval = Decimal(str(ctx.specs.strike_interval(day, ctx.data_mode).value))
+    except Exception:                                   # the contract layer cannot vouch for this date: no structure is built
+        interval = None
+        if not blocked:
+            blocked = chain_gate = [Reason("CONTRACT_DATA_UNVERIFIED", "the strike interval is not available for %s" % day)]
+    # The four strategies are ALWAYS read when the market is readable, even if something other than the market blocks
+    # trading, so the reasons and the conditions still pending can be shown. A blocked read builds no structure.
     c = _Ctx(analysis=analysis, p=p, regime=regime, chain=chain, events=events, as_of=as_of, day=day, cfg=cfg,
              specs=ctx.specs, calendar=calendar, data_mode=ctx.data_mode, strategy_params=ctx.strategy_params,
-             regime_params=ctx.regime_params, cost_engine=ctx.cost_engine, expiry=eligible_exp[0],
-             interval=Decimal(str(ctx.specs.strike_interval(day, ctx.data_mode).value)))
-    evals = (_eval_debit(c), _eval_credit(c), _eval_condor(c), _eval_fly(c))
+             regime_params=ctx.regime_params, cost_engine=ctx.cost_engine,
+             expiry=eligible_exp[0] if eligible_exp else None, interval=interval,
+             chain_problem=("; ".join(r.text for r in blocked) if blocked else None),
+             blocked_by=("gate" if gate else "chain"))
+    evals = (_eval_debit(c), _eval_credit(c), _eval_condor(c), _eval_fly(c)) if analysis is not None else ()
+    if gate:
+        return _no_trade(as_of, analysis, gate, regime, p, evals)
+    if chain_gate:
+        return _no_trade(as_of, analysis, chain_gate, regime, p, evals)
     ranked = sorted([e for e in evals if e.eligible and e.confidence >= p.min_confidence],
                     key=lambda e: (-e.confidence, e.proposal.defined_risk_inr))
     if not ranked:
@@ -670,14 +692,18 @@ def select(regime, candles, chain, events, as_of, ctx, p, position_open=False, k
                     TITLES[e.strategy], e.confidence, p.min_confidence)))
             else:
                 reasons.append(Reason(e.strategy, "%s: %s" % (TITLES[e.strategy], _first_blocker(e))))
-        return _no_trade(as_of, analysis, reasons, regime, p, evals)
+        narratives = {e.strategy: {"setup": _setup(e.proposal, analysis, c), "trigger": _trigger(e.proposal, e, analysis, c),
+                                   "exit_rules": _exit_rules(e.proposal, analysis, c)} for e in evals if e.proposal is not None}
+        return _no_trade(as_of, analysis, reasons, regime, p, evals)._replace(narratives=narratives)
     best = ranked[0]
     others = [e for e in evals if e is not best]
     prop = best.proposal
     candidate = prop.candidate if prop.candidate is not None else _structure_candidate(prop, best, analysis, c)
+    narratives = {e.strategy: {"setup": _setup(e.proposal, analysis, c), "trigger": _trigger(e.proposal, e, analysis, c),
+                               "exit_rules": _exit_rules(e.proposal, analysis, c)} for e in evals if e.proposal is not None}
     return Selection(TRADE, as_of, analysis, best.strategy, best.confidence, confidence_label(best.confidence),
                      _why(best, others, analysis), _trigger(prop, best, analysis, c), _setup(prop, analysis, c),
-                     _exit_rules(prop, analysis, c), evals, (), regime.label, p.fingerprint, NOTE, candidate)
+                     _exit_rules(prop, analysis, c), evals, (), regime.label, p.fingerprint, NOTE, candidate, narratives)
 
 
 def select_at(provider, ctx, p, as_of, position_open=False, kill_dir=None, data_label=None):

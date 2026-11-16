@@ -25,8 +25,10 @@ from .data.provider import MarketDataProvider
 from .errors import DataNotAvailable, NiftyError
 from .guards import paper_only
 from .intraday import setup as intraday_setup
+from .journal import journal as journal_mod
 from .market.ist import ist_datetime, to_ist
 from .positions import manager as manager_mod
+from .selector import readiness as readiness_mod
 
 UNREALISED_NOTE = ("UNREALISED: a simulated mark to liquidation on live quotes, after entry costs and estimated exit "
                    "costs. It moves with every quote and is not a result and not evidence of profitability.")
@@ -91,6 +93,7 @@ class LiveSession(object):
         self._open_notes = []
         self._last_now = None
         self._waiting_slot = None
+        self._history = []                           # one compact row per decision of today (see selector.readiness)
 
     @property
     def last_slot(self):
@@ -111,6 +114,11 @@ class LiveSession(object):
                                          hold_unanswered=not self.auto_entry, auto_entry=self.auto_entry,
                                          restore=True)
         self.runner.start(now)
+        # a restart mid-day keeps the day's decision history: rebuild it from the journal
+        try:
+            self._history = readiness_mod.history_from_records(journal_mod.read_records(self.journal.path))
+        except Exception:                            # a damaged journal is reported elsewhere; the history is a convenience
+            self._history = []
         self._open_notes = list(self.runner.carry_notes)
         self.note(now, "paper session started (real quotes, simulated fills, %s)" % (
             "AUTOMATIC paper entry and exit" if self.auto_entry else "entries need your yes"))
@@ -129,6 +137,7 @@ class LiveSession(object):
             self._open(now)
             out.extend(self._open_notes)
         self.runner.expire_pending(now)
+        self._refresh_last_history()
         due = [s for s in self._slots if s <= now]
         if due and due[-1] != self._last_slot:
             slot = due[-1]
@@ -141,6 +150,8 @@ class LiveSession(object):
                 self._last_slot = slot
                 skip = verdict.text if verdict is not None and verdict.state == "SKIP" else None
                 status = self.runner.tick(now, skip_entry_reason=skip)
+                if status not in (None, "SLOT_SKIPPED") and self.runner.last_decision:
+                    readiness_mod.record_in_history(self._history, readiness_mod.history_entry(self.runner.last_decision))
                 if status == "SLOT_SKIPPED":
                     out.append("slot %s SKIPPED, no new entry: %s" % (slot.strftime("%H:%M"), skip))
                 elif status is not None:
@@ -223,8 +234,17 @@ class LiveSession(object):
         if self.runner is None or self.finished:
             return "NO_SESSION"
         status = self.runner.answer(fingerprint, reply, now)
+        self._refresh_last_history()
         self.note(now, "reply for ticket %s: %s" % (fingerprint, status))
         return status
+
+    def _refresh_last_history(self):
+        """A reply or an expiry changes what became of the latest decision: keep its history row in step."""
+        d = self.runner.last_decision if self.runner is not None else None
+        fresh = readiness_mod.history_entry(d) if d else None
+        if fresh is not None and self._history and self._history[-1]["at"] == fresh["at"]:
+            fresh["later_valid_at"] = self._history[-1]["later_valid_at"]
+            self._history[-1] = fresh
 
     def finish(self, now):
         if self.finished or self.runner is None:
@@ -388,7 +408,9 @@ class LiveSession(object):
             view["last_decision"] = {"decision_time": d["decision_time"], "status": d.get("status"),
                                      "regime": d["regime"]["label"], "strategy_outcome": d["strategy"]["outcome"],
                                      "reasons": [r["text"] for r in why][:4], "setup": d.get("setup"),
-                                     "selector": d.get("selector")}
+                                     "selector": d.get("selector"), "readiness": d.get("readiness")}
+            view["decision_history"] = list(self._history)[-60:]
+            view["readiness_legend"] = readiness_mod.LEGEND
         for fp, p in (self.runner.pending or {}).items():
             view["pending_tickets"].append({
                 "fingerprint": fp, "text": p.ticket.text, "decided_at": p.decided_at.isoformat(),

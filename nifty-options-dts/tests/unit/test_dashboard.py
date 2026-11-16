@@ -62,7 +62,7 @@ class SetupRulesCardTests(NoNetworkTestCase):
         html = dashboard._setup_rules_card({"side": "BULL", "checks": [
             {"rule": "breakout_close", "ok": True, "value": "09:50 closed 25,320.00", "limit": "> 25,318.29"},
             {"rule": "retest", "ok": False, "value": "none yet", "limit": "low <= 25,323.36 after 09:50"}]})
-        for text in ("Setup rules", "breakout_close", "PASS", "<b>FAIL</b>", "none yet", "25,323.36", "up-breakout"):
+        for text in ("Setup rules", "Breakout close", "PASSED", "FAILED", "none yet", "25,323.36", "up-breakout"):
             self.assertIn(text, html)
 
     def test_nothing_is_shown_when_there_is_no_rule_table(self):

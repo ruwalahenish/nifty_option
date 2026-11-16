@@ -126,6 +126,48 @@ All of these also close on abnormal volatility, an opposite regime (directional 
   are far too few to say anything about profit. Judge it by net P&L per trade after
   costs over many sessions, and keep the 30-trade rule in mind.
 
+## 8. Trade readiness: why it waited, what it waits for, where it would enter
+
+The Live page and the journal explain every adaptive decision (`nifty_core/selector/readiness.py`). The dashboard only renders what
+the backend computed from the selector's own conditions and thresholds; it holds no trading logic.
+
+**Status** (one per decision): WAITING FOR SIGNAL, WAITING FOR CONFIRMATION, READY FOR RISK VALIDATION, READY TO EXECUTE, NO VALID
+STRATEGY, TRADE EXECUTED, EXECUTION BLOCKED. READY TO EXECUTE is only set after the risk gate has approved (in manual mode, while the
+ticket waits for your yes). A technical, safety or risk problem is EXECUTION BLOCKED; it is never shown as a market condition.
+
+**Checklist** (for the selected strategy, or else the one nearest to qualifying), in the strategy's own words:
+
+| Status | Meaning |
+|---|---|
+| PASSED | checked now and holds |
+| FAILED | checked now and does not hold; re-checked at every 5-minute slot |
+| PENDING | not reached yet: the option structure, the confirmation count and the risk gate are only checked once the conditions above pass |
+| ERROR | a technical problem (stale data, no usable expiry), not a statement about the market |
+| N/A | cannot apply: the NIFTY index has no traded volume, so there is no volume confirmation (option volume and open interest are checked under liquidity) |
+| NOT CONFIRMED | an optional extra that does not hold; it lowers confidence and never blocks a trade |
+
+**Expected entry.** Shown only when a real, quoted, liquid structure exists at the decision time: the underlying price, the strikes,
+CE/PE, each premium, the net credit or debit, the worst case against the limit, reward-to-risk, the stop and the target, and when it was
+priced. Otherwise it reads **ENTRY NOT AVAILABLE** with the reason, plus the price bands the conditions are measured against (for
+example the mid-range band for an iron condor, computed from the thresholds). The listed entry conditions are only those the live logic
+enforces; the selector's narrative also mentions an "entry candle" rule and a "spot within 0.15%" rule, which the live pipeline does not
+check, so they are not shown as requirements. No time or price is promised: execution depends on live conditions and the final
+validations.
+
+**Even when something else blocks trading** (an unusable expiry, stale data, a scheduled event, the kill file) the four strategies are
+still read, so the market-side conditions stay visible next to the technical reason.
+
+**Decision history** (the Live page, `decision_history` in the state file and the API): one row per decision with the time, regime,
+strategy evaluated, expected entry, NIFTY price, what held and what did not, why not, whether that strategy **later became valid**, and
+whether a paper trade was entered. It is rebuilt from the journal when a session restarts mid-day.
+
+**API** (GET only, same password as the pages): `/api/trade-readiness` (the latest decision's readiness, the legend and the next slot) and
+`/api/decision-history` (the day's rows), both JSON.
+
+**Expiry.** `live_run --expiry auto` records one expiry for the whole session. It now skips an expiry closer than the strategy's
+minimum (2 days): on a Monday the current weekly expiry is Tuesday, one day away, and a session recorded for it could not trade all day
+("no listed expiry is at least 2 days away"). An explicit `--expiry` is never changed.
+
 ## What this does not do
 
 - Expiry-payoff figures (max profit / loss, breakevens) describe the shape; the trade is closed the same day, so real P&L depends
