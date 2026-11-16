@@ -52,7 +52,8 @@ ANSWERS_PATH = os.path.join(LIVE_DIR, "answers.jsonl")
 JOURNAL_DIR = os.path.join(TRADER_DIR, "journal")
 FIXTURE_DIR = os.path.join(PROJECT, "tests", "fixtures", "scenarios")
 DEFAULT_CONFIG = os.path.join(PROJECT, "config", "config.example.json")
-SPOT_LOG_POINTS = 60                 # about 10 minutes of snapshots at the default poll
+DEFAULT_POLL_SECONDS = 5             # one snapshot every 5 s; decisions are still once per 5-minute slot
+SPOT_LOG_POINTS = 120                # about 10 minutes of snapshots at the default poll
 KEEP_CHAINS = 3                      # the pipeline reads only the newest snapshot; a few are kept for safety
 LIVE_MIN_POLL_SECONDS = 5            # fastest live poll; the quote-staleness limit is 60 s, so 5-10 s is comfortable
 HEX16 = re.compile(r"^[0-9a-f]{16}$")
@@ -429,8 +430,9 @@ def build_parser():
                    "looser), or default (the strict reference thresholds)")
     p.add_argument("--entry-mode", choices=("auto", "manual"), default="auto",
                    help="auto (default): paper entries and exits are automatic; manual: each entry waits for your yes")
-    p.add_argument("--interval", type=int, default=10, help="seconds between live polls (default 10, minimum %d)" %
-                   LIVE_MIN_POLL_SECONDS)
+    p.add_argument("--interval", type=int, default=DEFAULT_POLL_SECONDS, help="seconds between live polls (default %d, minimum %d)" % (
+        DEFAULT_POLL_SECONDS,
+                   LIVE_MIN_POLL_SECONDS))
     p.add_argument("--expiry", default="auto", help="auto, a keyword such as next_week, or YYYY-MM-DD")
     p.add_argument("--window", type=int, default=1000, help="keep strikes within this many points of spot")
     p.add_argument("--out-dir", default=None, help="recording folder (default data/recordings/<date>)")

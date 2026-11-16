@@ -461,7 +461,7 @@ class LivePollingTests(NoNetworkTestCase):
 
     def test_live_polling_defaults_to_ten_seconds_and_never_below_five(self):
         a = live_run.build_parser().parse_args([])
-        self.assertEqual(a.interval, 10)
+        self.assertEqual(a.interval, 5)
         self.assertEqual(live_run.LIVE_MIN_POLL_SECONDS, 5)
 
 

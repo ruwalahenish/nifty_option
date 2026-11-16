@@ -75,6 +75,21 @@ class GuardTests(NoNetworkTestCase):
         self.assertEqual(g.check(SLOT, at(600), [row("24697.9")], ()).state, G.WAIT)         # first look only
         self.assertEqual(g.check(SLOT, at(610), [row("24697.9")], ()).state, G.GO)
 
+    def test_stable_means_unchanged_for_ten_seconds_whatever_the_poll_rate(self):
+        """At a 5 s poll two identical reads are only 5 s apart: not yet proof that the vendor stopped updating the candle."""
+        g = G.CandleGuard()
+        g.check(SLOT, at(40), [row("24697.9")], SPOTS)
+        self.assertEqual(g.check(SLOT, at(45), [row("24697.9")], SPOTS).state, G.WAIT)       # 5 s of identical values
+        self.assertEqual(g.check(SLOT, at(50), [row("24697.9")], SPOTS).state, G.GO)         # 10 s
+
+    def test_a_change_restarts_the_stability_clock(self):
+        g = G.CandleGuard()
+        g.check(SLOT, at(40), [row("24690.0")], SPOTS)
+        g.check(SLOT, at(45), [row("24690.0")], SPOTS)
+        g.check(SLOT, at(50), [row("24697.9")], SPOTS)                                      # it moved: the clock restarts here
+        self.assertEqual(g.check(SLOT, at(55), [row("24697.9")], SPOTS).state, G.WAIT)
+        self.assertEqual(g.check(SLOT, at(60), [row("24697.9")], SPOTS).state, G.GO)
+
     def test_a_candle_that_never_stops_changing_is_skipped(self):
         g = G.CandleGuard()
         for i, s in enumerate((35, 50, 65, 80, 95, 110)):

@@ -23,9 +23,10 @@ Without `--dashboard`, run `python tools/dashboard.py` in a second terminal inst
 
 ## How live it is
 
-- `live_run` polls Upstox every **10 s** by default (`--interval`, minimum 5 s). Each poll refreshes the spot, the option quotes,
+- `live_run` polls Upstox every **5 s** by default (`--interval`, minimum 5 s). Each poll refreshes the spot, the option quotes,
   the unrealised P&L and the open-position marks. Snapshots are kept in memory, so fast polling stays cheap; every snapshot is
-  still written to `data/recordings/<date>/chain.csv` for a later replay.
+  still written to `data/recordings/<date>/chain.csv` for a later replay (about 30 MB a day at 5 s; the disk of a free Render
+  instance is not persistent). Decisions and exits are still made once per 5-minute slot, whatever the poll rate.
 - The page re-fetches its content **every second** and swaps it in place: no reload, no flicker, and the "last data written N s
   ago" figure and the green dot keep moving. The dot turns red (and a banner appears) if the runner stops writing or the
   dashboard server cannot be reached. With scripts turned off it falls back to a plain 3-second reload.
@@ -39,7 +40,7 @@ Without `--dashboard`, run `python tools/dashboard.py` in a second terminal inst
 | NIFTY spot, quote age | latest recorded snapshot and how old it is |
 | NIFTY chart | the day's price, every live tick, with the opening range, the long/short trigger levels and the day average drawn as lines (intraday profile) |
 | Option chain | the 5 strikes either side of the money for the expiry in play: last, bid and ask for calls and puts, the at-the-money row in bold, and BUY / SELL marks on the legs of an open paper position |
-| Day P&L / Unrealised / Realised | **unrealised** is shown from the first poll after an entry, refreshed every poll (default 30 s). It is a simulated mark to liquidation: long leg at bid minus slippage, short leg at ask plus slippage, minus the actual entry costs and estimated exit costs. It is labelled "not evidence of profitability". |
+| Day P&L / Unrealised / Realised | **unrealised** is shown from the first poll after an entry, refreshed every poll (default 5 s). It is a simulated mark to liquidation: long leg at bid minus slippage, short leg at ask plus slippage, minus the actual entry costs and estimated exit costs. It is labelled "not evidence of profitability". |
 | Open paper position | both legs: paper entry price, current bid/ask, exit mark, per-leg P&L, and a gauge between the stop level and the profit-target level (from `config/position_thresholds.json`) |
 | Ticket waiting for your reply | the exact ticket and the one command that approves it |
 | Latest decision, events, closed trades, P&L curve | what the engines decided and why, and what happened since the start |

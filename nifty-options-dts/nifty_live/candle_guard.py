@@ -9,7 +9,8 @@ revisited, so a rule could pass or fail on a price that was no longer the candle
 The guard says GO only when ALL of these hold for the candle that ended at the slot boundary:
     1. it is published,
     2. SETTLE seconds have passed since the boundary,
-    3. two consecutive reads gave identical open/high/low/close (it has stopped changing),
+    3. it has shown identical open/high/low/close for at least MIN_STABLE_SECONDS (it has stopped changing; this is measured in
+       seconds, not in polls, so it means the same at any poll rate),
     4. while the vendor may still be catching up (before SPOT_CHECK_UNTIL seconds), its close is within a small band of
        the index spot we recorded at the boundary (an independent price source).
 It says WAIT while that is still pending, and SKIP once MAX_WAIT seconds have passed with the candle still missing or still
@@ -26,6 +27,7 @@ Verdict = namedtuple("Verdict", "state text")
 
 SLOT_MINUTES = 5
 MIN_SETTLE_SECONDS = 30
+MIN_STABLE_SECONDS = 10                # identical values must have been seen for this long
 SPOT_CHECK_UNTIL_SECONDS = 90          # the observed vendor lag was 15-90 s; after this a stable candle is accepted
 MAX_WAIT_SECONDS = 120
 SPOT_TOLERANCE_PCT = Decimal("0.04")   # about 10 index points: one poll's normal movement, far below the 28-point errors seen
@@ -38,10 +40,10 @@ def _signature(row):
 
 class CandleGuard(object):
     def __init__(self, min_settle=MIN_SETTLE_SECONDS, spot_check_until=SPOT_CHECK_UNTIL_SECONDS,
-                 max_wait=MAX_WAIT_SECONDS, tolerance_pct=SPOT_TOLERANCE_PCT):
-        self.min_settle, self.spot_check_until = min_settle, spot_check_until
+                 max_wait=MAX_WAIT_SECONDS, tolerance_pct=SPOT_TOLERANCE_PCT, min_stable=MIN_STABLE_SECONDS):
+        self.min_settle, self.spot_check_until, self.min_stable = min_settle, spot_check_until, min_stable
         self.max_wait, self.tolerance_pct = max_wait, Decimal(tolerance_pct)
-        self._slot, self._sig, self._reads = None, None, 0
+        self._slot, self._sig, self._since, self._reads = None, None, None, 0
 
     def check(self, slot, now, rows, spots):
         """Verdict for the slot ending at `slot`. `rows` are candle dicts (start, open, high, low, close as text),
@@ -51,8 +53,11 @@ class CandleGuard(object):
         row = next((r for r in rows if dt.datetime.fromisoformat(r["start"]) == want), None)
         sig = None if row is None else _signature(row)
         if self._slot != slot:
-            self._slot, self._sig, self._reads = slot, None, 0
-        stable = sig is not None and sig == self._sig
+            self._slot, self._sig, self._since, self._reads = slot, None, None, 0
+        if sig is not None and sig != self._sig:
+            self._since = now                              # these values were first seen now
+        stable = (sig is not None and sig == self._sig and self._since is not None
+                  and (now - self._since).total_seconds() >= self.min_stable)
         self._sig, self._reads = sig, self._reads + 1
 
         problem = None
