@@ -109,9 +109,10 @@ class RecorderTests(NoNetworkTestCase):
             recorder.resolve_expiry(TOKEN, "current_month", transport)
 
     def test_auto_expiry_skips_an_expiry_closer_than_the_strategys_minimum(self):
-        """On Monday 16 Nov 2026 the current weekly expiry is Tuesday: one day away. The strategy needs 2, so the session
-        must record the NEXT expiry, or every decision of the day says "no listed expiry is at least 2 days away"."""
-        by_keyword = {"current_week": "2026-11-17", "next_week": "2026-11-24", "current_month": "2026-11-24"}
+        """Monday 16 Nov 2026: the current weekly expiry is Tuesday 17 Nov, one day away. The strategy needs 2, so the session
+        must record the NEXT expiry (Monday 23 Nov: Tuesday 24 Nov is a trading holiday, so it moves a day earlier), or every
+        decision of the day says "no listed expiry is at least 2 days away". This is the real situation seen on the live page."""
+        by_keyword = {"current_week": "2026-11-17", "next_week": "2026-11-23", "current_month": "2026-11-23"}
 
         def transport(url, headers, timeout):
             key = next(k for k in by_keyword if "expiry_date=%s" % k in url)
@@ -121,11 +122,11 @@ class RecorderTests(NoNetworkTestCase):
             return 200, json.dumps(doc).encode()
         day = dt.date
         self.assertEqual(recorder.resolve_expiry(TOKEN, "auto", transport), "2026-11-17")                       # old behaviour kept
-        self.assertEqual(recorder.resolve_expiry(TOKEN, "auto", transport, today=day(2026, 11, 16), min_days=2), "2026-11-24")   # Monday
-        self.assertEqual(recorder.resolve_expiry(TOKEN, "auto", transport, today=day(2026, 11, 17), min_days=2), "2026-11-24")   # expiry day
+        self.assertEqual(recorder.resolve_expiry(TOKEN, "auto", transport, today=day(2026, 11, 16), min_days=2), "2026-11-23")   # Monday: 1 day
+        self.assertEqual(recorder.resolve_expiry(TOKEN, "auto", transport, today=day(2026, 11, 17), min_days=2), "2026-11-23")   # expiry day: 0 days
         self.assertEqual(recorder.resolve_expiry(TOKEN, "auto", transport, today=day(2026, 11, 15), min_days=2), "2026-11-17")   # Sunday: 2 days is enough
         with self.assertRaises(ur.UpstoxReadError) as caught:
-            recorder.resolve_expiry(TOKEN, "auto", transport, today=day(2026, 11, 23), min_days=2)             # nothing is far enough
+            recorder.resolve_expiry(TOKEN, "auto", transport, today=day(2026, 11, 22), min_days=2)             # nothing is far enough
         self.assertIn("closer than the 2-day minimum", str(caught.exception))
         self.assertEqual(recorder.resolve_expiry(TOKEN, "current_week", transport, today=day(2026, 11, 16), min_days=2),
                          "2026-11-17")                                                                          # an explicit keyword is the user's choice

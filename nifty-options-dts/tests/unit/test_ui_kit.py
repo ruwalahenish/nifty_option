@@ -92,7 +92,7 @@ class BandChartTests(NoNetworkTestCase):
         self.assertIn("Mid-range band", svg)
         self.assertIn("Bullish trend level", svg)
         self.assertIn("24,332.78 – 24,405.72", svg)
-        self.assertIn("now 24,386.50", svg)
+        self.assertIn("last close 24,386.50", svg)                                   # the last completed candle, not a live tick
         self.assertIn("role=img", svg)
 
     def test_nothing_is_drawn_without_zones_or_a_price(self):

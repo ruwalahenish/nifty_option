@@ -165,8 +165,9 @@ whether a paper trade was entered. It is rebuilt from the journal when a session
 `/api/decision-history` (the day's rows), both JSON.
 
 **Expiry.** `live_run --expiry auto` records one expiry for the whole session. It now skips an expiry closer than the strategy's
-minimum (2 days): on a Monday the current weekly expiry is Tuesday, one day away, and a session recorded for it could not trade all day
-("no listed expiry is at least 2 days away"). An explicit `--expiry` is never changed.
+minimum (2 days): NIFTY weekly expiry is a Tuesday, so on the Monday (or the Tuesday itself) the current weekly expiry is 1 or 0 days
+away, and a session recorded for it could not trade all day ("no listed expiry is at least 2 days away"). The next listed expiry is
+used instead (a Monday when the Tuesday is a trading holiday, for example 23 Nov 2026). An explicit `--expiry` is never changed.
 
 ## What this does not do
 

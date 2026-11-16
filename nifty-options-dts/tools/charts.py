@@ -208,7 +208,7 @@ def band_svg(zones, spot, day_low=None, day_high=None):
                 x(a), y + 26, max(x(b) - x(a), 4)))
     out.append("<line x1=%.1f x2=%.1f y1=2 y2=%d stroke='var(--warn)' stroke-width=2 stroke-dasharray='4 3' />" % (x(now), x(now), h - 16))
     anchor = "end" if x(now) > w * 0.7 else "start" if x(now) < w * 0.3 else "middle"
-    out.append("<text x=%.1f y=%d fill='var(--warn)' font-size=12 font-weight=700 text-anchor=%s>now %s</text>" % (
+    out.append("<text x=%.1f y=%d fill='var(--warn)' font-size=12 font-weight=700 text-anchor=%s>last close %s</text>" % (
         x(now), h - 3, anchor, esc("{:,.2f}".format(now))))
     out.append("</svg>")
     return "".join(out)

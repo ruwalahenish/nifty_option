@@ -44,9 +44,10 @@ def resolve_expiry(token, expiry, transport=None, today=None, min_days=None):
     """Turn "auto" or a keyword into one explicit expiry date (YYYY-MM-DD) that actually has quotes, so every snapshot
     of a session is for the same expiry. An explicit date is returned unchanged.
 
-    With `min_days` (and `today`), "auto" skips an expiry that is closer than the strategy's minimum: on a Monday the
-    current weekly expiry is Tuesday, one day away, and a session recorded for it could never trade all day (every
-    decision would say "no listed expiry is at least 2 days away"), so the next listed expiry is used instead."""
+    With `min_days` (and `today`), "auto" skips an expiry that is closer than the strategy's minimum. NIFTY weekly expiry is a
+    Tuesday, so on the Monday (or the Tuesday itself) the current weekly expiry is 1 or 0 days away, and a session recorded for it
+    could never trade all day (every decision would say "no listed expiry is at least 2 days away"). The next listed expiry is
+    used instead (a Monday when the Tuesday is a trading holiday, as on 23 Nov 2026)."""
     if len(expiry) == 10 and expiry[4] == "-":
         return expiry
     skipped = []
